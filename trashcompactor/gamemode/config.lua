@@ -25,6 +25,19 @@ GM.Config.AllowAdminNoClip = true
 GM.Config.TrashmanAfkTimer = 0
 
 
+--Enable pointshop playermodels
+GM.Config.PointshopModels = false
+
+--Enable pointshops points
+GM.Config.PointshopPoints = false
+
+--Enable Pointshop points for Pointshop2
+GM.Config.PointshopTwoPoints = false
+
+--Amount of points to give for kills. Requires either pointshops to be enabled
+GM.Config.PointshopPointsToGive = 10
+
+
 --Weapons the victims will spawn with
 GM.Config.VictimWeapons = {
 	"weapon_357",

@@ -20,6 +20,24 @@ WINNER_CHOSEN = false
 
 TRASHMAN_AFKTIMER = 0
 
+
+DefaultModels = {}
+DefaultModels[1] = "male01"
+DefaultModels[2] = "male02"
+DefaultModels[3] = "male03"
+DefaultModels[4] = "male04"
+DefaultModels[5] = "male05"
+DefaultModels[6] = "male06"
+DefaultModels[7] = "male07"
+DefaultModels[8] = "male08"
+DefaultModels[9] = "male09"
+DefaultModels[10] = "female01"
+DefaultModels[11] = "female02"
+DefaultModels[12] = "female03"
+DefaultModels[13] = "female04"
+DefaultModels[14] = "female06"
+DefaultModels[15] = "female07"
+
 function GM:InitPostEntity()
 	SaveAllPropLocations()
 	ClearProps()
@@ -74,11 +92,12 @@ function GM:PlayerSpawn( ply )
 	umsg.Bool(false) 
 	umsg.End()
 	ply:RemoveFlags(FL_ATCONTROLS)
-	
-	
-	skin = player_manager.TranslatePlayerModel(ply:GetInfo( "cl_playermodel")  )
-	
-	ply:SetModel( skin )
+
+	if(!GAMEMODE.Config.PointshopModels || ply:GetModel() == "models/player.mdl") then
+		skin = player_manager.TranslatePlayerModel(DefaultModels[math.random(#DefaultModels)]  )
+		
+		ply:SetModel( skin )
+	end
 end
 
 function GM:PlayerSetHandsModel( ply, ent )
@@ -157,6 +176,7 @@ end
 
 function GM:ShowSpare2(ply)
 	--ply:ConCommand("TCGestureMenu")
+	print(ply:GetModel())
 end
 
 function GM:PlayerSelectSpawn( ply )
@@ -387,13 +407,37 @@ function GM:PlayerDeath( victim, inflictor, killer, sendmessage )
 		SendDeathNotice(CURRENT_TRASHMAN,victim,"propkill",victim:Team(),"")
 		if(IsValid(CURRENT_TRASHMAN)) then
 			CURRENT_TRASHMAN:AddFrags(1)
+			if(GAMEMODE.Config.PointshopPoints) then
+				CURRENT_TRASHMAN:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
+				CURRENT_TRASHMAN:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
+			end
+			
+			if(GAMEMODE.Config.PointshopTwoPoints) then
+				CURRENT_TRASHMAN:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
+			end
 		end
 	elseif(!killer:IsPlayer()) then
 		SendDeathNotice("",victim,"worldkill",victim:Team(),"")
 	elseif(inflictor:GetClass() == "npc_grenade_frag") then
 		SendDeathNotice(killer,victim,"grenadekill",victim:Team(),killer:Team())
+		if(GAMEMODE.Config.PointshopPoints) then
+			killer:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
+			killer:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
+		end
+		
+		if(GAMEMODE.Config.PointshopTwoPoints) then
+			killer:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
+		end
 	else
 		SendDeathNotice(killer,victim,"kill",victim:Team(),killer:Team())
+		if(GAMEMODE.Config.PointshopPoints) then
+			killer:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
+			killer:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
+		end
+		
+		if(GAMEMODE.Config.PointshopTwoPoints) then
+			killer:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
+		end
 	end
 	
 	victim:SetSpectatorEnt(nil)
@@ -567,3 +611,28 @@ concommand.Add( "tc_gesture", function(sender,str,args)
 	--	ply:RemoveFlags(FL_ATCONTROLS)
 	--end)
 end)
+
+--function CommandsCheck(ply,txt)
+--	local command = string.Explode(" ", txt)
+--	if (command[1] == "!setafktimer") then
+--		if (ply:IsAdmin()) then 
+--			if (!command[2]) then ply:ChatPrint("No time amount was given") return false end
+--			if (!tonumber(command[2])) then ply:ChatPrint("Not a number") return false end
+--			GAMEMODE.Config.TrashmanAfkTimer = tonumber(command[2])
+--			ply:ChatPrint("Afk Timer Set")
+--			return false
+--		else
+--			ply:ChatPrint("You do not have permission to run this command")
+--			return false
+--		end
+--	end
+--	
+--	--if (command[1] == "!shop") then
+--	--	return false
+--	--end
+--	--
+--	--if(txt[1] == "!") then ply:ChatPrint("Invalid Command!") return false end
+--end
+--hook.Add("PlayerSay","CommandsCheck",CommandsCheck)
+
+

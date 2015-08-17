@@ -143,6 +143,27 @@ function RoundThink()
 				CURRENTROUNDSTATE = ROUND_ENDED
 			end
 		end
+		
+		if(IsValid(CURRENT_TRASHMAN) && GAMEMODE.Config.TrashmanAfkTimer != 0) then
+				if(TRASHMAN_AFKTIMER >= GAMEMODE.Config.TrashmanAfkTimer) then
+					TRASHMAN_AFKTIMER = 0
+					--for k,v in pairs(player.GetAll()) do
+						SendTCMessage( 1,nil,0,CURRENT_TRASHMAN:Nick())
+					--end
+					CURRENT_TRASHMAN:Kill()
+				elseif(TRASHMAN_AFKTIMER + 5 == GAMEMODE.Config.TrashmanAfkTimer) then
+					SendTCMessage( 2,CURRENT_TRASHMAN,5,"")
+				elseif(TRASHMAN_AFKTIMER + 10 == GAMEMODE.Config.TrashmanAfkTimer) then
+					SendTCMessage( 2,CURRENT_TRASHMAN,10,"")
+				end
+			
+				TRASHMAN_AFKTIMER = TRASHMAN_AFKTIMER + 1
+
+			end
+		
+		
+		
+		
         SendTimerInt = CurTime() + 1
     end
 end

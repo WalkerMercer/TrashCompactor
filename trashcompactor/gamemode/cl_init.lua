@@ -343,6 +343,8 @@ function DrawAScoreboard()
 	victimsframe:SetSize( wper , hper - (hper / 6)) --Set the size
 	victimsframe:SetBackgroundColor(Color(76,76,76,255))
 	victimsframe:MakePopup()
+	victimsframe:SetVerticalScrollbarEnabled(true)
+	
 	
 	local victimslabel = vgui.Create( "DLabel",victimsframe )
 	victimslabel:Center()
@@ -352,34 +354,39 @@ function DrawAScoreboard()
 	victimslabel:SetText("  Victims")
 	victimslabel:SizeToContents()
 	
+	local victimscroll = vgui.Create( "DScrollPanel", victimsframe ) //Create the Scroll panel
+	victimscroll:SetSize( wper , hper - (hper / 6) )
+	victimscroll:SetPos( 0,30)
 	
 	
-	local VictimsList   = vgui.Create( "DIconLayout", victimsframe ) //Create the DIconLayout and put it inside of the Scroll Panel.
+	local VictimsList  = vgui.Create( "DIconLayout", victimscroll ) //Create the DIconLayout and put it inside of the Scroll Panel.
 	VictimsList:SetSize( wper , hper )
 	VictimsList:SetPos( 0,45)
 	VictimsList:SetSpaceY( 5 ) //Sets the space inbetween the panels on the X Axis by 5
 	VictimsList:SetSpaceX( 45 )
 	
 	
-	
-	for k, v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
+	--team.GetPlayers(TEAM_VICTIMS)
+	for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
 		if(IsValid(v)) then
 			local ListItem = VictimsList:Add( "DButton" ) //Add DPanel to the DIconLayout
 			ListItem:SetSize( wper , wper / 16 ) //Set the size of it
 			ListItem:SetText("")
-	
+	   
 			function ListItem:Paint(width,height)
-				if(v:Alive()) then
-					surface.SetDrawColor( Color( 46,92,165, 200 ))
-				else
-					surface.SetDrawColor( Color( 46,92,165, 80 ))
+				if(IsValid(v)) then
+					if(v:Alive()) then
+						surface.SetDrawColor( Color( 46,92,165, 200 ))
+					else
+						surface.SetDrawColor( Color( 46,92,165, 80 ))
+					end
+					surface.DrawRect( 0,0,width,height)
 				end
-				surface.DrawRect( 0,0,width,height)
 			end
 			ListItem.DoRightClick = function() 
 				GAMEMODE:OpenContextMenu(v)
 			end
-	
+	   
 			local av = vgui.Create( "AvatarImage",ListItem )
 			av:SetSize( wper / 16,wper / 16 )
 			av:SetPos(0,0)
