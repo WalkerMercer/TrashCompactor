@@ -1,0 +1,20 @@
+"Gamemode"
+{
+	"base"		"base"
+	"title"		"Trash Compactor"
+	"maps"		"^tc_|^trash_"
+	"menusystem"	"1"
+	"workshopid"	"495998201"
+	
+	"settings"
+	{
+		1
+		{
+			"name"		"tc_debug"
+			"text"		"Debug Mode"
+			"help"		"Debug Mode"
+			"type"		"CheckBox"
+			"default"	"0"
+		}
+	}
+}
