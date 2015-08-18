@@ -176,7 +176,7 @@ end
 
 function GM:ShowSpare2(ply)
 	--ply:ConCommand("TCGestureMenu")
-	print(ply:GetModel())
+	--print(ply:GetModel())
 end
 
 function GM:PlayerSelectSpawn( ply )
@@ -249,7 +249,13 @@ function GM:PhysgunPickup(ply, ent)
 	--print(ent:GetPhysicsObject():GetMass())
 	
 	if(ply:IsTrashman() || GetConVarNumber( "tc_debug" ) == 1 || ply:IsAdmin()) then
-		ent.Held = true
+		
+		
+		local distancetoprop = ply:GetPos():Distance(ent:GetPos())
+		if(distancetoprop > GAMEMODE.Config.MaxPropDistance) then return false end
+		
+		ply.CurrentProp = ent
+		
 		return true
 	else
 		return false
@@ -257,7 +263,8 @@ function GM:PhysgunPickup(ply, ent)
 end
 
 function GM:PhysgunDrop(ply, ent)
-	ent.Held = false
+	ply.CurrentProp = nil
+	BaseClass.PhysgunDrop( self, ply, ent)
 	return true
 end
 
@@ -278,7 +285,16 @@ end
 function GM:PlayerShouldTakeDamage( victim, pl )
 	if(pl:IsPlayer()) then
 		if(victim == pl) then return true end
-		if(victim:IsVictim() && pl:IsVictim()) then return false end
+		
+		if(GAMEMODE.Config.FreeForAllOnRoundEnd) then
+			if(CURRENTROUNDSTATE != ROUND_ENDED) then
+				if(victim:IsVictim() && pl:IsVictim()) then return false end
+			else
+				if(victim:IsVictim() && pl:IsVictim()) then return true end
+			end
+		else
+			if(victim:IsVictim() && pl:IsVictim()) then return false end
+		end
 	end
 	
 	return true
@@ -320,10 +336,26 @@ function GM:ShouldCollide(ent1,ent2)
 	return true
 end
 
---function Update()
---	
---end
---hook.Add("Think", "UpdateInit", Update)
+function Update()
+	if(IsValid(CURRENT_TRASHMAN)) then
+		if(IsValid(CURRENT_TRASHMAN.CurrentProp)) then
+			local distancetoprop = CURRENT_TRASHMAN:GetPos():Distance(CURRENT_TRASHMAN.CurrentProp:GetPos())
+			if(distancetoprop > GAMEMODE.Config.MaxPropDistance + 5) then
+				CURRENT_TRASHMAN:SendLua("notification.AddLegacy(\"Prop exceeded maximum distance.\", NOTIFY_ERROR, 5)")
+				CURRENT_TRASHMAN:ConCommand("-attack")
+				CURRENT_TRASHMAN.CurrentProp = nil
+			end
+			umsg.Start( "GetCurrentPropDistance",CURRENT_TRASHMAN)
+			umsg.Long(distancetoprop) 
+			umsg.End()
+		else
+			umsg.Start( "GetCurrentPropDistance",CURRENT_TRASHMAN)
+			umsg.Long(0) 
+			umsg.End()
+		end
+	end
+end
+hook.Add("Think", "UpdateInit", Update)
 
 function GM:KeyPress( ply, key )
 	if(IsValid(CURRENT_TRASHMAN) && GAMEMODE.Config.TrashmanAfkTimer != 0) then
@@ -331,6 +363,22 @@ function GM:KeyPress( ply, key )
 			TRASHMAN_AFKTIMER = 0
 		end
 	end
+	
+	--if(ply:KeyPressed(IN_ATTACK)) then
+	--	print(ply:GetActiveWeapon():GetClass())
+	--	if(IsValid(ply:GetActiveWeapon()) && ply:GetActiveWeapon():GetClass() == "weapon_357") then
+	--		print(ply:GetActiveWeapon():GetNextPrimaryFire().." : "..CurTime())
+	--		if(ply:GetActiveWeapon():GetNextPrimaryFire() < CurTime()) then
+	--			local eyetrace = ply:GetEyeTrace()
+	--			if(IsValid(eyetrace.Entity)) then
+	--				if(!eyetrace.Entity:IsPlayer()) then
+	--					eyetrace.Entity:SetVelocity(ply:GetForward() * eyetrace.Entity:GetPhysicsObject():GetMass() / 2)
+	--				end
+	--			end
+	--		end
+	--	end
+	--end
+	
 end
 
 function GM:PlayerDeathThink( ply)
@@ -399,45 +447,28 @@ end
 function GM:PlayerDeath( victim, inflictor, killer, sendmessage )
 	if((inflictor:GetClass() == "prop_physics_multiplayer" && victim:IsTrashman())) then
 		SendDeathNotice("",victim,"suicide",4,"")
+	
 	elseif(victim == killer) then
-		--print(inflictor:GetClass())
 		SendDeathNotice("",victim,"suicide",4,"")
 		victim:AddFrags(1) -- Will auto remove one so we dont lose points for suiciding
+	
 	elseif(inflictor:GetClass() == "prop_physics_multiplayer" || inflictor:GetClass() == "prop_physics_override") then
 		SendDeathNotice(CURRENT_TRASHMAN,victim,"propkill",victim:Team(),"")
 		if(IsValid(CURRENT_TRASHMAN)) then
 			CURRENT_TRASHMAN:AddFrags(1)
-			if(GAMEMODE.Config.PointshopPoints) then
-				CURRENT_TRASHMAN:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
-				CURRENT_TRASHMAN:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
-			end
-			
-			if(GAMEMODE.Config.PointshopTwoPoints) then
-				CURRENT_TRASHMAN:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
-			end
+			GiveDeathPoints(victim,CURRENT_TRASHMAN)
 		end
+	
 	elseif(!killer:IsPlayer()) then
 		SendDeathNotice("",victim,"worldkill",victim:Team(),"")
 	elseif(inflictor:GetClass() == "npc_grenade_frag") then
 		SendDeathNotice(killer,victim,"grenadekill",victim:Team(),killer:Team())
-		if(GAMEMODE.Config.PointshopPoints) then
-			killer:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
-			killer:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
-		end
 		
-		if(GAMEMODE.Config.PointshopTwoPoints) then
-			killer:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
-		end
+		GiveDeathPoints(victim,killer)
 	else
 		SendDeathNotice(killer,victim,"kill",victim:Team(),killer:Team())
-		if(GAMEMODE.Config.PointshopPoints) then
-			killer:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
-			killer:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
-		end
 		
-		if(GAMEMODE.Config.PointshopTwoPoints) then
-			killer:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
-		end
+		GiveDeathPoints(victim,killer)
 	end
 	
 	victim:SetSpectatorEnt(nil)
@@ -468,6 +499,17 @@ function GM:PlayerDeath( victim, inflictor, killer, sendmessage )
 		end)
 	end
 	
+end
+
+function GiveDeathPoints(victim,killer)
+	if(GAMEMODE.Config.PointshopPoints) then
+		killer:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
+		killer:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick())
+	end
+	
+	if(GAMEMODE.Config.PointshopTwoPoints) then
+		killer:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for killing "..victim:Nick(), small)
+	end
 end
 
 function SendDeathNotice(killer,victim,typeofdeath,teamv,teamk)

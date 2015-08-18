@@ -21,6 +21,8 @@ TEAM_VICTIMS = 5
 
 PlayerOverride = FindMetaTable("Player")
 
+PlayerOverride.CurrentProp = nil
+
 function GM:CreateTeams()
 	--TEAM SETUP
 	team.SetUp( TEAM_TRASHMAN, "Trashman", Color( 0, 255, 0 ), true )

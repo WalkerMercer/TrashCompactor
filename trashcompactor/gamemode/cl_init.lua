@@ -23,6 +23,7 @@ spawnframe:SetVisible(false)
 local RespawnTime = 0
 local Killer = nil
 
+local CurrentPropDistance = 0
 
 ----TIMER-----------------------------------------------------------------------
 
@@ -55,12 +56,15 @@ local function GetMessage( amessage)
 	
 	if (Message == 0) then --Round is starting so its now running
 		CURRENTSTATE = ROUND_RUNNING
+		WINMESSAGETYPE = 0
 	elseif (Message == 1) then -- RoundEnded
 		CURRENTSTATE = ROUND_ENDED
 	elseif (Message == 2) then
 		CURRENTSTATE = ROUND_STARTING
+		WINMESSAGETYPE = 0
 	elseif (Message == 3) then
 		CURRENTSTATE = ROUND_WAITING
+		WINMESSAGETYPE = 0
 	end
 end
 usermessage.Hook ("SendMessage" , GetMessage )
@@ -94,7 +98,7 @@ function DrawHud()
 			end
 		end
 		
-		if(LocalPlayer():IsTrashman()) then
+		--if(LocalPlayer():IsTrashman()) then
 			local aliveplayers = 0
 			
 			for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
@@ -103,13 +107,30 @@ function DrawHud()
 				end
 			end
 			
-			draw.RoundedBox( 5, ScrW() / 1.16, ScrH() / 1.18, ScrW() / 8.6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
-			draw.DrawText("Remaining Victims: "..aliveplayers.."/"..#team.GetPlayers(TEAM_VICTIMS) , "HudHintTextLarge", ScrW() / 1.088, ScrH() / 1.165, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
-		end
+			draw.RoundedBox( 5, ScrW() / 55, ScrH() / 1.18, ScrW() / 8.6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
+			draw.DrawText("Remaining Victims: "..aliveplayers.."/"..#team.GetPlayers(TEAM_VICTIMS) , "HudHintTextLarge", ScrW() / 13, ScrH() / 1.165, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+		--end
 		
 		GAMEMODE:DrawDeathNotice( 0.85, 0.04 )
 		
+		if(LocalPlayer():IsTrashman()) then
+			if(CurrentPropDistance != 0) then
+				draw.RoundedBox( 5, ScrW() / 55, ScrH() / 1.25, ScrW() / 8.6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
+				--draw.DrawText("Max Prop Distance: "..CurrentPropDistance.."/"..GAMEMODE.Config.MaxPropDistance , "HudHintTextLarge", ScrW() / 15  , ScrH() / 1.23, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+				draw.DrawText("Prop Distance: "..CurrentPropDistance.."/"..GAMEMODE.Config.MaxPropDistance, "HudHintTextLarge", ScrW() / 13  , ScrH() / 1.23, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+				--local bulleticon = Material("icon16/sum.png")
+				--surface.SetDrawColor( 255, 255, 255, 255 ) 
+				--if(bulleticon) then
+				--	surface.SetMaterial( bulleticon )
+				--end
+				--surface.DrawTexturedRect(ScrW() / 55, ScrH() / 1.108, ScrH() / 45, ScrH() / 45 )
+				
+			end
+		end
+		
+		
 		draw.RoundedBox( 10, ScrW() / 2 - (ScrW() / 6) / 2, ScrH() / 1.1, ScrW() / 6, ScrH() / 15, Color( 0, 0, 0, 100 ) )
+		
 		
 		if(!MAP_ERROR) then
 			if(CURRENTSTATE == ROUND_RUNNING) then
@@ -355,18 +376,18 @@ function DrawAScoreboard()
 	victimslabel:SizeToContents()
 	
 	local victimscroll = vgui.Create( "DScrollPanel", victimsframe ) //Create the Scroll panel
-	victimscroll:SetSize( wper , hper - (hper / 6) )
+	victimscroll:SetSize( wper , hper - (hper / 6) - 30 )
 	victimscroll:SetPos( 0,30)
 	
 	
 	local VictimsList  = vgui.Create( "DIconLayout", victimscroll ) //Create the DIconLayout and put it inside of the Scroll Panel.
-	VictimsList:SetSize( wper , hper )
-	VictimsList:SetPos( 0,45)
+	VictimsList:SetSize( wper , hper)
+	VictimsList:SetPos( 0,0)
 	VictimsList:SetSpaceY( 5 ) //Sets the space inbetween the panels on the X Axis by 5
 	VictimsList:SetSpaceX( 45 )
 	
 	
-	--team.GetPlayers(TEAM_VICTIMS)
+	team.GetPlayers(TEAM_VICTIMS)
 	for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
 		if(IsValid(v)) then
 			local ListItem = VictimsList:Add( "DButton" ) //Add DPanel to the DIconLayout
@@ -408,9 +429,12 @@ function DrawAScoreboard()
 			plykills:SetText("K:"..v:Frags().." / D:"..v:Deaths())
 			plykills:SizeToContents()
 			plykills:Center()
-			plykills:SetPos((wper / 16) * 13.5,plykills.y)
+			plykills:SetPos((wper / 16) * 11.5,plykills.y)
 		end
 	end
+	
+	
+	
 end
 
 local Menu
@@ -599,3 +623,7 @@ function MapError()
 end
 usermessage.Hook ("MapError" , MapError )
 
+function GetCurrentPropDistance(data)
+	CurrentPropDistance = data:ReadLong()
+end
+usermessage.Hook ("GetCurrentPropDistance" , GetCurrentPropDistance )

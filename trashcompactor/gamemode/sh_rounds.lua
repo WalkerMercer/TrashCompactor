@@ -301,5 +301,30 @@ function VictimsWin()
 		umsg.Start( "SendWinMessage" )
 		umsg.Char(1) 
 		umsg.End()
+		
+		if(GAMEMODE.Config.FreeForAllOnRoundEnd) then
+			for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
+				if(IsValid(v) && v:Alive()) then
+					v:GiveAmmo( 200, "357", true )
+				end
+			end
+		end
+		
+		if(GAMEMODE.Config.PointshopPoints || GAMEMODE.Config.PointshopTwoPoints) then
+			for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
+				if(IsValid(v) && v:Alive()) then
+					if(GAMEMODE.Config.PointshopPoints) then
+						v:PS_GivePoints(GAMEMODE.Config.PointshopPointsToGive)
+						v:PS_Notify("You've been given "..GAMEMODE.Config.PointshopPointsToGive.." points for surviving the round!")
+					end
+					
+					if(GAMEMODE.Config.PointshopTwoPoints) then
+						v:PS2_AddStandardPoints(GAMEMODE.Config.PointshopPointsToGive, "You've been given "..GAMEMODE.Config.PointshopPointsToGive.." for surviving the round!", small)
+					end
+				end
+			end
+		end
+		
+		
 	end
 end

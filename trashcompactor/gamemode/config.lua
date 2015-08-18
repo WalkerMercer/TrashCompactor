@@ -18,6 +18,12 @@ GM.Config.PropCollision = false
 --Trashmen spawn with the Physgun
 GM.Config.SpawnWithPhysGun = true
 
+--Max grab distance for props
+GM.Config.MaxPropDistance = 800
+
+--Can Victims fight it out if they survive the round?
+GM.Config.FreeForAllOnRoundEnd = false
+
 --Allow admins to noclip
 GM.Config.AllowAdminNoClip = true
 
