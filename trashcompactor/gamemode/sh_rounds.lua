@@ -18,6 +18,7 @@ local RoundRestartTimer = 0
 local MAP_ERROR = false
 
 NEXT_TRASHMAN = nil
+BOUGHT_TRASHMAN = nil
 PREV_TRASHMAN = nil
 
 function Init()
@@ -46,15 +47,37 @@ function Update()
 		elseif (CURRENTROUNDSTATE == ROUND_RUNNING) then
 			RoundThink()
 			if(RoundTimer <= -2) then
-				RoundRestartTimer = CurTime() + 10
 				VictimsWin()
-				CURRENTROUNDSTATE = ROUND_ENDED
+				EndRound()
 			end
 		elseif (CURRENTROUNDSTATE == ROUND_ENDED) then
 			RoundEnd()
 		elseif (CURRENTROUNDSTATE == ROUND_WAITING) then
-			RoundStart()
+			RoundWait()
 		end
+		
+		if(UseTrashmanQueue) then 
+			
+			local newqueue = {}
+		
+			for k,v in pairs(TRASHMAN_QUEUE_LIST) do
+				if(IsValid(v)) then
+					table.insert(newqueue,v)
+				end
+			end
+			
+			TRASHMAN_QUEUE_LIST = newqueue		
+		end
+		
+		SendTrashmanQueue() 
+		SendFrozenAmount()
+		
+		for k,v in pairs(player.GetAll()) do
+			if(IsValid(v) && v:Team() == TEAM_UNASSIGNED) then
+				v:SetTeam(TEAM_SPECTATOR)
+			end
+		end
+		
 	else
 		--Map isnt working
 	end
@@ -62,21 +85,19 @@ end
 hook.Add("Think", "Update", Update)
 
 function RoundStart()
-	local amountofply = #player.GetAll()
-	if(amountofply >= GAMEMODE.Config.MinumumPlayersNeeded || GetConVarNumber( "tc_debug" ) == 1) then
+	if(MinumumPlayersNeeded() || (GetConVarNumber( "tc_debug" ) == 1 && IsValid(player.GetAll()[1]) && player.GetAll()[1]:Team() == TEAM_VICTIMS)) then
 		CURRENTROUNDSTATE = ROUND_RUNNING
 		RoundTimer = AmountOfTimeInRound
 		umsg.Start( "SendMessage" )
 		umsg.Char(ROUND_RUNNING)
 		umsg.End()
 		
-		SpawnAllProps()
-		FindRandomTrashman()
+		FindTrashman()
+		
 		WINNER_CHOSEN = false
+		TRASHMAN_AFKTIMER = 0
 	else
-		umsg.Start( "SendMessage" )
-		umsg.Char(ROUND_WAITING)
-		umsg.End()
+		CURRENTROUNDSTATE = ROUND_WAITING
 	end
 end
 
@@ -92,7 +113,7 @@ function RoundThink()
 		umsg.Char(ROUND_RUNNING) 
 		umsg.End()
 		
-		if(#player.GetAll() >= GAMEMODE.Config.MinumumPlayersNeeded) then
+		if(MinumumPlayersNeeded()) then
 			local iseveryvictimdead = true
 			local victims = team.GetPlayers(TEAM_VICTIMS)
 			for k,v in pairs (victims) do
@@ -101,9 +122,8 @@ function RoundThink()
 			
 			if(iseveryvictimdead) then
 				--Trashman Wins!
-				RoundRestartTimer = CurTime() + 10
 				TrashmanWin()
-				CURRENTROUNDSTATE = ROUND_ENDED
+				EndRound()
 			end
 			
 			
@@ -115,21 +135,18 @@ function RoundThink()
 				
 			if(iseverytrashmandead) then
 				--Victims Wins!
-				RoundRestartTimer = CurTime() + 10
 				VictimsWin()
-				CURRENTROUNDSTATE = ROUND_ENDED
+				EndRound()
 			end
 			
-			if(IsValid(CURRENT_TRASHMAN) && GAMEMODE.Config.TrashmanAfkTimer != 0) then
-				if(TRASHMAN_AFKTIMER >= GAMEMODE.Config.TrashmanAfkTimer) then
+			if(IsValid(CURRENT_TRASHMAN) && GetConVarNumber("tc_afktimer") != 0) then
+				if(TRASHMAN_AFKTIMER >= GetConVarNumber("tc_afktimer")) then
 					TRASHMAN_AFKTIMER = 0
-					--for k,v in pairs(player.GetAll()) do
-						SendTCMessage( 1,nil,0,CURRENT_TRASHMAN:Nick())
-					--end
+					SendTCMessage( 1,nil,0,CURRENT_TRASHMAN:Nick())
 					CURRENT_TRASHMAN:Kill()
-				elseif(TRASHMAN_AFKTIMER + 5 == GAMEMODE.Config.TrashmanAfkTimer) then
+				elseif(TRASHMAN_AFKTIMER + 5 == GetConVarNumber("tc_afktimer")) then
 					SendTCMessage( 2,CURRENT_TRASHMAN,5,"")
-				elseif(TRASHMAN_AFKTIMER + 10 == GAMEMODE.Config.TrashmanAfkTimer) then
+				elseif(TRASHMAN_AFKTIMER + 10 == GetConVarNumber("tc_afktimer")) then
 					SendTCMessage( 2,CURRENT_TRASHMAN,10,"")
 				end
 			
@@ -139,31 +156,9 @@ function RoundThink()
 			
 		else
 			if(GetConVarNumber("tc_debug") != 1) then
-				RoundRestartTimer = CurTime() + 10
-				CURRENTROUNDSTATE = ROUND_ENDED
+				EndRound()
 			end
 		end
-		
-		if(IsValid(CURRENT_TRASHMAN) && GAMEMODE.Config.TrashmanAfkTimer != 0) then
-				if(TRASHMAN_AFKTIMER >= GAMEMODE.Config.TrashmanAfkTimer) then
-					TRASHMAN_AFKTIMER = 0
-					--for k,v in pairs(player.GetAll()) do
-						SendTCMessage( 1,nil,0,CURRENT_TRASHMAN:Nick())
-					--end
-					CURRENT_TRASHMAN:Kill()
-				elseif(TRASHMAN_AFKTIMER + 5 == GAMEMODE.Config.TrashmanAfkTimer) then
-					SendTCMessage( 2,CURRENT_TRASHMAN,5,"")
-				elseif(TRASHMAN_AFKTIMER + 10 == GAMEMODE.Config.TrashmanAfkTimer) then
-					SendTCMessage( 2,CURRENT_TRASHMAN,10,"")
-				end
-			
-				TRASHMAN_AFKTIMER = TRASHMAN_AFKTIMER + 1
-
-			end
-		
-		
-		
-		
         SendTimerInt = CurTime() + 1
     end
 end
@@ -177,19 +172,50 @@ function RoundEnd()
 	if (CurTime() >= RoundRestartTimer) then
 		CURRENTROUNDSTATE = ROUND_STARTING
 		StartRoundDelayInt = CurTime() + 4
+		
 		ClearProps()
+		SpawnAllProps()
+		
+		ForceAllJoinVictims()
 		
 		WINNER_CHOSEN = false
-		
-		for k, v in pairs(player.GetAll()) do
-			JoinTeam(v,TEAM_VICTIMS,Vector(0,0,1))
-		end
 	end
 end
 
-function ResetPlayers()
+function RoundWait()
+	umsg.Start( "SendMessage" )
+	umsg.Char(ROUND_WAITING)
+	umsg.End()
+	
+	if(MinumumPlayersNeeded() || GetConVarNumber( "tc_debug" ) == 1) then
+		ClearProps()
+		SpawnAllProps()
+		ForceAllJoinVictims()
+		
+		CURRENTROUNDSTATE = ROUND_STARTING
+		StartRoundDelayInt = CurTime() + 4
+	end
+	
+end
+
+function EndRound()
+	RoundRestartTimer = CurTime() + 10
+	CURRENTROUNDSTATE = ROUND_ENDED
+end
+
+function MinumumPlayersNeeded()
+	local amountofply = 0	
+	amountofply = #team.GetPlayers(TEAM_VICTIMS)
+	amountofply = amountofply + #team.GetPlayers(TEAM_TRASHMAN)
+	amountofply = amountofply + #team.GetPlayers(TEAM_SPECTATOR)
+	if(amountofply >= GAMEMODE.Config.MinumumPlayersNeeded) then return true end
+	return false
+end
+
+function ForceAllJoinVictims()
 	for k, v in pairs(player.GetAll()) do
-		v:Spawn()
+		JoinTeam(v,TEAM_VICTIMS,Vector(0,0,1))
+		v.FrozenPhysicsObjects = nil
 	end
 end
 
@@ -207,42 +233,33 @@ function UnFreezeAllPlayers()
 	end
 end
 
-function FindRandomTrashman()
+function FindTrashman()
 	if(NEXT_TRASHMAN != nil) then
 		JoinTeam(NEXT_TRASHMAN,TEAM_TRASHMAN,Vector(0,1,0))
 		CURRENT_TRASHMAN = NEXT_TRASHMAN
 		NEXT_TRASHMAN = nil
-	else
-		local list = player.GetAll()
-		local noprevtrashman = {}
-				
-		for k,v in pairs(list) do
-			if(IsValid(PREV_TRASHMAN)) then
-				if(PREV_TRASHMAN != v) then
-					table.insert(noprevtrashman,v)
-				end
-			else
-				table.insert(noprevtrashman,v)
+	elseif(BOUGHT_TRASHMAN != nil) then
+		JoinTeam(BOUGHT_TRASHMAN,TEAM_TRASHMAN,Vector(0,1,0))
+		CURRENT_TRASHMAN = BOUGHT_TRASHMAN
+		BOUGHT_TRASHMAN = nil	
+		print("Used Bought Trashman!")
+	elseif(UseTrashmanQueue && #TRASHMAN_QUEUE_LIST != 0) then
+		if(IsValid(TRASHMAN_QUEUE_LIST[1])) then
+			JoinTeam(TRASHMAN_QUEUE_LIST[1],TEAM_TRASHMAN,Vector(0,1,0))
+			CURRENT_TRASHMAN = TRASHMAN_QUEUE_LIST[1]
+		end
+		
+		local newqueue = {}
+		
+		for k,v in pairs(TRASHMAN_QUEUE_LIST) do
+			if(IsValid(v) && v != CURRENT_TRASHMAN) then
+				table.insert(newqueue,v)
 			end
 		end
 		
-		
-		local num = math.random(#noprevtrashman)
-		
-		if(IsValid(noprevtrashman[num])) then
-		
-			JoinTeam(noprevtrashman[num],TEAM_TRASHMAN,Vector(0,1,0))
-			CURRENT_TRASHMAN = noprevtrashman[num]
-		
-		else
-			
-			print("Error Finding Trashman! Num: "..num.." Amount: "..#noprevtrashman)
-			
-			local ran = math.random(#list)
-			JoinTeam(list[ran],TEAM_TRASHMAN,Vector(0,1,0))
-			CURRENT_TRASHMAN = list[ran]
-			
-		end
+		TRASHMAN_QUEUE_LIST = newqueue
+	else
+		FindRandomTrashman()
 	end
 	
 	for k,v in pairs(player.GetAll()) do
@@ -250,32 +267,82 @@ function FindRandomTrashman()
 	end
 end
 
+function FindRandomTrashman()
+	
+	local list = player.GetAll()
+	local noprevtrashman = {}
+			
+	for k,v in pairs(list) do
+		if(IsValid(PREV_TRASHMAN)) then
+			if(PREV_TRASHMAN != v) then
+				table.insert(noprevtrashman,v)
+			end
+		else
+			table.insert(noprevtrashman,v)
+		end
+	end
+	
+	
+	local num = math.random(#noprevtrashman)
+	
+	if(IsValid(noprevtrashman[num])) then
+		JoinTeam(noprevtrashman[num],TEAM_TRASHMAN,Vector(0,1,0))
+		CURRENT_TRASHMAN = noprevtrashman[num]
+	
+	else
+		if(#list == 1) then
+			JoinTeam(list[1],TEAM_TRASHMAN,Vector(0,1,0))
+			CURRENT_TRASHMAN = list[1]
+		else
+			print("Error Finding Trashman! Num: "..num.." Amount: "..#noprevtrashman)
+			
+			if(#noprevtrashman != 0) then
+				local ran = math.random(#list)
+				JoinTeam(list[ran],TEAM_TRASHMAN,Vector(0,1,0))
+				CURRENT_TRASHMAN = list[ran]
+			end
+		end
+	end
+	
+	
+end
+
 function ClearProps()
-	local props = ents.FindByClass("prop_*")
 	
-	local grenades = ents.FindByClass("npc_grenade_frag")
+	if(#PROP_LIST != 0) then
+		
+		local propp = ents.FindByClass("prop_physics")
 	
-	table.Add(props, grenades)
+		local props = ents.FindByClass("prop_physics_multiplayer")
+		
+		local grenades = ents.FindByClass("npc_grenade_frag")
+		
+		local debris = ents.FindByClass("prop_debris")
+		
+		table.Add(props,propp)
+		
+		table.Add(props, grenades)
+		
+		table.Add(props, debris)
+		
+		for k,v in pairs (props) do
+			v:Remove()
+		end
 	
-	for k,v in pairs (props) do
-		v:Remove()
+	else
+		SaveAllPropLocations()
 	end
 end
 
 function SpawnAllProps()
 	for k,v in pairs (PROP_LIST) do
-		local ent
-		--if(PROP_LIST[k][2] == "models/props_c17/oildrum001_explosive.mdl") then
-			ent = ents.Create( "prop_physics_multiplayer")
-		--else
-			--ent = ents.Create( "prop_trash")
-		--end
-		if ( !ent:IsValid() ) then return end
+		local ent = ents.Create( "prop_physics_multiplayer")
+
+		if ( !ent:IsValid() ) then print("Error Making Prop") return end
 		ent:SetModel(PROP_LIST[k][2])
 		ent:SetPos(PROP_LIST[k][1])
 		ent:SetAngles(PROP_LIST[k][3])
 		ent:SetCustomCollisionCheck( true )
-		ent.Held = false
 		ent:Spawn()
 	end
 end

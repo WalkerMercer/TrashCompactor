@@ -1,5 +1,8 @@
 --CONFIG SETTINGS
 
+--Use thr Trashman Queue? (Use tc_queue 1  console command now)
+--GM.Config.UseTrashmanQueue = true
+
 --Round length in minutes
 GM.Config.RoundTime = 5
 
@@ -12,33 +15,35 @@ GM.Config.DropAllEnabled = true
 --Trashmen can freeze objects
 GM.Config.FreezePropsEnabled = true
 
+--Maximum amount of props the Trashman can freeze (Use tc_maxfreeze ## console command now)
+--GM.Config.MaxFreezeAmount = 10
+
 --Props will collide with each other
 GM.Config.PropCollision = false
 
 --Trashmen spawn with the Physgun
 GM.Config.SpawnWithPhysGun = true
 
---Max grab distance for props
-GM.Config.MaxPropDistance = 800
+--Max grab distance for props (Use tc_maxpropdistance ### console command now)
+--GM.Config.MaxPropDistance = 800
 
 --Can Victims fight it out if they survive the round?
-GM.Config.FreeForAllOnRoundEnd = false
+GM.Config.FreeForAllOnRoundEnd = true
 
 --Allow admins to noclip
 GM.Config.AllowAdminNoClip = true
 
---Trashman AFK Timer. Set 0 to disable --Broken
-GM.Config.TrashmanAfkTimer = 0
-
+--Trashman AFK Timer. Set 0 to disable (Use tc_afktimer ## console command now)
+--GM.Config.TrashmanAfkTimer = 20
 
 --Enable pointshop playermodels
-GM.Config.PointshopModels = false
+GM.Config.PointshopModels = true
 
 --Enable pointshops points
 GM.Config.PointshopPoints = false
 
 --Enable Pointshop points for Pointshop2
-GM.Config.PointshopTwoPoints = false
+GM.Config.PointshopTwoPoints = true
 
 --Amount of points to give for kills. Requires either pointshops to be enabled
 GM.Config.PointshopPointsToGive = 10

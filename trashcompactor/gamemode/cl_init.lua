@@ -8,22 +8,24 @@ include( 'config.lua')
 include( 'shared.lua')
 
 killicon.AddFont("kill", "TargetID", "has killed", Color(255,255,255,255))
---killicon.AddFont("finished", "TargetID", "finished off", Color(255,255,255,255))
 killicon.AddFont("suicide", "TargetID", "took the easy way out.", Color(255,255,255,255))
 killicon.AddFont("worldkill", "TargetID", "died.", Color(255,255,255,255))
---killicon.AddFont("propkill", "TargetID", "was killed by a prop.", Color(255,255,255,255))
 
 killicon.AddFont( "propkill",		"HL2MPTypeDeath",	"9",	Color(255,255,255,255) )
 killicon.AddFont( "grenadekill",	"HL2MPTypeDeath",	"4",	Color(255,255,255,255) )
 
-local spawnframe = vgui.Create( "DFrame" )
-spawnframe:SetVisible(false)
-
-
-local RespawnTime = 0
-local Killer = nil
-
 local CurrentPropDistance = 0
+
+local TRASHMAN_QUEUE = {}
+
+local IsInTrashmanQueue = false
+local PlaceInQueue = -1
+
+local BOUGHT_TRASHMAN = nil
+
+local NumberOfFrozenObjects = 0
+
+local UseTrashmanQueue = false
 
 ----TIMER-----------------------------------------------------------------------
 
@@ -54,10 +56,10 @@ WINMESSAGETYPE = 0
 local function GetMessage( amessage)
 	local Message = amessage:ReadChar()
 	
-	if (Message == 0) then --Round is starting so its now running
+	if (Message == 0) then 
 		CURRENTSTATE = ROUND_RUNNING
 		WINMESSAGETYPE = 0
-	elseif (Message == 1) then -- RoundEnded
+	elseif (Message == 1) then 
 		CURRENTSTATE = ROUND_ENDED
 	elseif (Message == 2) then
 		CURRENTSTATE = ROUND_STARTING
@@ -72,7 +74,7 @@ usermessage.Hook ("SendMessage" , GetMessage )
 local function GetWinMessage (amessage)
 	local Message = amessage:ReadChar()
 	
-	if (Message == 0) then --Round is starting so its now running
+	if (Message == 0) then
 		ROUND_WINNING_MESSAGE = "Trashmen Win!"
 		WINMESSAGETYPE = 1
 	elseif (Message == 1) then
@@ -85,10 +87,12 @@ usermessage.Hook ("SendWinMessage" , GetWinMessage )
 
 function DrawHud()
 
+	LocalPlayer():ConCommand("physgun_wheelspeed 10") -- not my favorite way of doing this but prevents prop killing 
+
 	if(GetConVarNumber( "cl_drawhud" ) == 1) then
 		draw.NoTexture()
 		
-		
+		--Draws The Win Message
 		if(WINMESSAGETYPE != 0) then
 			draw.RoundedBox( 10, ScrW() / 2 - (ScrW() / 6) / 2, ScrH() / 12.5, ScrW() / 6, ScrH() / 14, Color( 0, 0, 0, 200 ) )
 			if(WINMESSAGETYPE == 1) then
@@ -98,39 +102,54 @@ function DrawHud()
 			end
 		end
 		
-		--if(LocalPlayer():IsTrashman()) then
-			local aliveplayers = 0
-			
-			for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
-				if(IsValid(v) && v:Alive()) then
-					aliveplayers = aliveplayers + 1
-				end
+		--Draws Notice about Trashman Queue
+		if(UseTrashmanQueue) then
+			CheckTrashmanQueue()
+			if(PlaceInQueue != -1) then
+				draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.16, ScrW() / 6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
+				draw.DrawText("Your place in the Queue: "..PlaceInQueue , "HudHintTextLarge", ScrW() / 2, ScrH() / 1.145, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+			else
+				draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.16, ScrW() / 6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
+				draw.DrawText("  You are not in the Trashman Queue. \n Open the Scoreboard to add yourself." , "HudHintTextLarge", ScrW() / 2, ScrH() / 1.155, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
 			end
-			
-			draw.RoundedBox( 5, ScrW() / 55, ScrH() / 1.18, ScrW() / 8.6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
-			draw.DrawText("Remaining Victims: "..aliveplayers.."/"..#team.GetPlayers(TEAM_VICTIMS) , "HudHintTextLarge", ScrW() / 13, ScrH() / 1.165, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
-		--end
+		end
 		
+		--Draws Amount of Frozen Objects
+		if(LocalPlayer():IsTrashman()) then
+			draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.195, ScrW() / 6, ScrH() / 43, Color( 0, 0, 0, 200 ) )
+			draw.DrawText("Frozen Objects: "..NumberOfFrozenObjects.."/"..GetConVarNumber("tc_maxfreeze"), "HudHintTextLarge", ScrW() / 2, ScrH() / 1.19, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+		end
+		
+		--Draws Info for Spectators
+		if(LocalPlayer():Team() == TEAM_SPECTATOR || ((LocalPlayer():Team() == TEAM_VICTIMS || LocalPlayer():Team() == TEAM_TRASHMAN) && !LocalPlayer():Alive())) then
+			draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 45, ScrW() / 6, ScrH() / 43, Color( 0, 0, 0, 200 ) )
+			draw.DrawText("You will spawn next round.", "HudHintTextLarge", ScrW() / 2, ScrH() / 39, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+		end
+		
+		--Draws Remaining Victims number
+		local aliveplayers = 0
+		for k,v in pairs(team.GetPlayers(TEAM_VICTIMS)) do
+			if(IsValid(v) && v:Alive()) then
+				aliveplayers = aliveplayers + 1
+			end
+		end
+		draw.RoundedBox( 5, ScrW() / 55, ScrH() / 1.18, ScrW() / 8.6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
+		draw.DrawText("Remaining Victims: "..aliveplayers.."/"..#team.GetPlayers(TEAM_VICTIMS) , "HudHintTextLarge", ScrW() / 13, ScrH() / 1.165, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+
+		--Draws Death Notices
 		GAMEMODE:DrawDeathNotice( 0.85, 0.04 )
 		
+		--Draws the Current Prop Distance if youre the Trashman
 		if(LocalPlayer():IsTrashman()) then
 			if(CurrentPropDistance != 0) then
 				draw.RoundedBox( 5, ScrW() / 55, ScrH() / 1.25, ScrW() / 8.6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
-				--draw.DrawText("Max Prop Distance: "..CurrentPropDistance.."/"..GAMEMODE.Config.MaxPropDistance , "HudHintTextLarge", ScrW() / 15  , ScrH() / 1.23, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
-				draw.DrawText("Prop Distance: "..CurrentPropDistance.."/"..GAMEMODE.Config.MaxPropDistance, "HudHintTextLarge", ScrW() / 13  , ScrH() / 1.23, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
-				--local bulleticon = Material("icon16/sum.png")
-				--surface.SetDrawColor( 255, 255, 255, 255 ) 
-				--if(bulleticon) then
-				--	surface.SetMaterial( bulleticon )
-				--end
-				--surface.DrawTexturedRect(ScrW() / 55, ScrH() / 1.108, ScrH() / 45, ScrH() / 45 )
-				
+				draw.DrawText("Prop Distance: "..CurrentPropDistance.."/"..GetConVarNumber("tc_maxpropdistance"), "HudHintTextLarge", ScrW() / 13  , ScrH() / 1.23, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
 			end
 		end
 		
 		
+		--Draws The Round Timer
 		draw.RoundedBox( 10, ScrW() / 2 - (ScrW() / 6) / 2, ScrH() / 1.1, ScrW() / 6, ScrH() / 15, Color( 0, 0, 0, 100 ) )
-		
 		
 		if(!MAP_ERROR) then
 			if(CURRENTSTATE == ROUND_RUNNING) then
@@ -158,6 +177,7 @@ function DrawHud()
 end
 hook.Add("HUDPaint", "HUD_TEST", DrawHud)
 
+--Hides Parts of the Hud
 function HideHud(hud)
 	for k, v in pairs({"CHudBattery",  "CHudSecondaryAmmo", "CHudDamageIndicator"})do --"CHudHealth", "CHudAmmo",
 		if hud == v then return false end
@@ -165,14 +185,17 @@ function HideHud(hud)
 end
 hook.Add("HUDShouldDraw", "HideHud", HideHud)
 
+--Used for Drawing Round Info
 function DrawMessage( message,color )
 	draw.DrawText(message , "TargetID", ScrW() / 2 , ScrH() / 1.075, color, TEXT_ALIGN_CENTER )
 end
 
+--Used for Drawing Team Winner
 function DrawWinMessage( message)
 	draw.DrawText(message , "TargetID", ScrW() / 2 , ScrH() / 1.055, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
 end
 
+--Converts Seconds To Clock
 function SecondsToClock(sSeconds)
 	nHours = string.format("%02.f", math.floor(sSeconds/3600));
 	nMins = string.format("%02.f", math.floor(sSeconds/60 - (nHours*60)));
@@ -180,25 +203,22 @@ function SecondsToClock(sSeconds)
 	return nMins..":"..nSecs
 end
 
+--Gestures we can perform by using F4
+local Gestures = {"bow","cheer", "laugh", "muscle", "zombie", "robot", "dance", "agree", "becon", "disagree", "salute", "wave", "forward", "group", "glide"}
 
-local Gestures = {"cheer", "laugh", "muscle", "zombie", "robot", "dance", "agree", "becon", "disagree", "salute", "wave", "forward", "group"}
-
+--Gestures
 local frame
-
 function GestureMenu()
 	if(!LocalPlayer():Alive()) then return false end
-	
-	local dancebutton
-	
-	
+
 	frame = vgui.Create( "DFrame" )
 	
 	local wper = ScrW() / 2
 	local hper = ScrH() / 2
 	
-	frame:SetPos( 0,0 ) --Set the window in the middle of the players screen/game window
-	frame:SetSize( ScrW() / 6, hper ) --Set the size
-	frame:SetTitle( "Gestures" ) --Set title
+	frame:SetPos( 0,0 )
+	frame:SetSize( ScrW() / 6, hper ) 
+	frame:SetTitle( "Gestures" )
 	frame:SetVisible( true )
 	frame:SetDraggable( false )
 	frame:ShowCloseButton( true )
@@ -212,15 +232,15 @@ function GestureMenu()
 		surface.DrawRect( 0,0,width,height)
 	end
 	
-
-	local GestureList   = vgui.Create( "DIconLayout", frame ) //Create the DIconLayout and put it inside of the Scroll Panel.
-	GestureList:SetSize( wper , hper - 45 )
-	GestureList:SetPos( 0,45)
-	GestureList:SetSpaceY( 5 ) //Sets the space inbetween the panels on the X Axis by 5
+	local framescroll = vgui.Create( "DScrollPanel", frame )
+	framescroll:SetSize( wper  , hper - 30 )
+	framescroll:SetPos( 0,30)
+	
+	local GestureList   = vgui.Create( "DIconLayout", framescroll )
+	GestureList:SetSize( wper , hper )
+	GestureList:SetPos( 0,30)
+	GestureList:SetSpaceY( 5 )
 	GestureList:SetSpaceX( 45 )
-	
-	
-	
 	
 	for k, v in pairs(Gestures) do
 		local ListItem = GestureList:Add( "DButton" ) //Add DPanel to the DIconLayout
@@ -233,6 +253,7 @@ function GestureMenu()
 		end
 		ListItem.DoClick = function() 
 			RunConsoleCommand("tc_gesture",LocalPlayer():EntIndex(),v)
+			LocalPlayer():ConCommand("act "..v)
 			frame:Close()
 		end
 		
@@ -250,9 +271,12 @@ end
 concommand.Add( "TCGestureMenu", GestureMenu )
 
 
+--Scoreboard Drawing
 local scoreboardframe
+local queueframe
+			
+function DrawAScoreboard() --Not Commenting this cause its a clusterfuck of a mess
 
-function DrawAScoreboard()
 	scoreboardframe = vgui.Create( "DPanel" )
 	
 	local wper = ScrW() / 2.5
@@ -279,14 +303,34 @@ function DrawAScoreboard()
 	scoreboardtitletext:SetText("SCOREBOARD   ")
 	scoreboardtitletext:SizeToContents()
 	scoreboardtitletext:Center()
-		
+	
+	local serverinfo = vgui.Create( "DLabel",title )
+	serverinfo:SetColor(Color(255,255,255,255))
+	serverinfo:SetFont("Trebuchet18")
+	local serverstringtouse = GetHostName()
+	
+	serverinfo:SetText(serverstringtouse)
+	serverinfo:SizeToContents()
+	serverinfo:Center()
+	serverinfo:SetPos((wper / 45),serverinfo.y)
+	
+	local playeramntinfo = vgui.Create( "DLabel",title )
+	playeramntinfo:SetColor(Color(255,255,255,255))
+	playeramntinfo:SetFont("Trebuchet18")
+	playeramntinfo:SetText("Players: "..#player.GetAll().."/"..game.MaxPlayers())
+	playeramntinfo:SizeToContents()
+	playeramntinfo:Center()
+	playeramntinfo:SetPos((wper / 1.15),serverinfo.y)
+	
+	
+	
 	local trashmanframe = vgui.Create( "DPanel",scoreboardframe )
 	
 	local wper = ScrW() / 2.5
 	local hper = ScrH() / 1.25
 	
 	trashmanframe:SetPos( (ScrW() / 2)- (wper / 2), (ScrH() / 2) - (hper / 2) + (wper / 16) ) --Set the window in the middle of the players screen/game window
-	trashmanframe:SetSize( wper , hper /  (wper / 80)) --Set the size
+	trashmanframe:SetSize( wper , hper / 8.9) --Set the size
 	trashmanframe:SetBackgroundColor(Color(76,76,76,255))
 	trashmanframe:MakePopup()
 	
@@ -302,12 +346,10 @@ function DrawAScoreboard()
 	
 	local TrashmanList   = vgui.Create( "DIconLayout", trashmanframe ) //Create the DIconLayout and put it inside of the Scroll Panel.
 	TrashmanList:SetSize( wper , hper )
-	TrashmanList:SetPos( 0,45)
+	TrashmanList:SetPos( 0,30)
 	TrashmanList:SetSpaceY( 5 ) //Sets the space inbetween the panels on the X Axis by 5
 	TrashmanList:SetSpaceX( 45 )
-	
-	
-	
+
 	
 	for k, v in pairs(team.GetPlayers(TEAM_TRASHMAN)) do
 		local ListItem = TrashmanList:Add( "DButton" ) //Add DPanel to the DIconLayout
@@ -327,12 +369,16 @@ function DrawAScoreboard()
 		ListItem.DoRightClick = function() 
 			GAMEMODE:OpenContextMenu(v)
 		end
-
+		
+		ListItem.DoClick = function()
+			v:ShowProfile()
+		end
+		
 		local av = vgui.Create( "AvatarImage",ListItem )
 		av:SetSize( wper / 16,wper / 16 )
 		av:SetPos(0,0)
 		av:SetPlayer( v,64 )
-		
+
 		local plyname = vgui.Create( "DLabel",ListItem )
 		local x,y = ListItem:GetSize()
 		plyname:SetColor(Color(255,255,255,255))
@@ -346,10 +392,10 @@ function DrawAScoreboard()
 		local x,y = ListItem:GetSize()
 		plykills:SetColor(Color(255,255,255,255))
 		plykills:SetFont("Trebuchet24")
-		plykills:SetText("K:"..v:Frags().." / D:"..v:Deaths())
+		plykills:SetText("K:"..v:Frags().." / D:"..v:Deaths().."  Ping: "..v:Ping())
 		plykills:SizeToContents()
 		plykills:Center()
-		plykills:SetPos((wper / 16) * 13.5,plykills.y)
+		plykills:SetPos((wper / 16) * 10.4,plykills.y)
 		
 	end
 	
@@ -407,7 +453,11 @@ function DrawAScoreboard()
 			ListItem.DoRightClick = function() 
 				GAMEMODE:OpenContextMenu(v)
 			end
-	   
+			
+			ListItem.DoClick = function()
+				v:ShowProfile()
+			end
+			
 			local av = vgui.Create( "AvatarImage",ListItem )
 			av:SetSize( wper / 16,wper / 16 )
 			av:SetPos(0,0)
@@ -426,17 +476,158 @@ function DrawAScoreboard()
 			local x,y = ListItem:GetSize()
 			plykills:SetColor(Color(255,255,255,255))
 			plykills:SetFont("Trebuchet24")
-			plykills:SetText("K:"..v:Frags().." / D:"..v:Deaths())
+			plykills:SetText("K:"..v:Frags().." / D:"..v:Deaths().."  Ping: "..v:Ping())
 			plykills:SizeToContents()
 			plykills:Center()
-			plykills:SetPos((wper / 16) * 11.5,plykills.y)
+			plykills:SetPos((wper / 16) * 10.4,plykills.y)
 		end
+	end	
+end
+
+function DrawTheQueue()
+
+	queueframe = vgui.Create( "DPanel" )
+	
+	local wper = ScrW() / 2.5
+	local hper = ScrH() / 1.25
+	
+	--Mostly For Screen Scaling. Wont work in 4:3 Aspect
+	queueframe:SetPos( (ScrW() / 1.3)- (wper / 6), (ScrH() / 2) - (hper / 2) ) 
+	queueframe:SetSize( wper / 3, hper ) 
+	queueframe:MakePopup()
+
+	local queuetitle = vgui.Create( "DPanel",queueframe )
+	
+	queuetitle:SetPos( queueframe:GetPos() ) 
+	queuetitle:SetSize( wper / 3 ,   (wper / 16)) 
+	queuetitle:SetBackgroundColor(Color(120,152,27, 255))
+	queuetitle:MakePopup()
+
+	
+	local queuetitletext = vgui.Create( "DLabel",queuetitle )
+	queuetitletext:SetPos((wper / 16) * 1.4,0)
+	queuetitletext:SetColor(Color(255,255,255,255))
+	queuetitletext:SetFont("Trebuchet18")
+	queuetitletext:SetText("Trashman Queue                     ") --Best Spacing
+	queuetitletext:SizeToContents()
+	queuetitletext:Center()
+	
+	
+	local plusbutton = vgui.Create( "DButton" )
+	plusbutton:SetParent(queuetitle)
+	plusbutton:SetPos(queuetitle:GetWide() / 1.35,queuetitle:GetTall() / 4.5)
+	plusbutton:SetSize(20,20 ) //Set the size of it
+	plusbutton:SetText("")
+    plusbutton:SetTooltip("Add Yourself to the Queue.")
+	
+	plusbutton:SetImage("icon16/user_add.png")
+	
+	function plusbutton:Paint(width,height)
+		
+	end
+	
+	plusbutton.DoClick = function() 	
+		RunConsoleCommand("tc_add_to_trashman_queue",LocalPlayer():EntIndex())
+	end
+		
+	
+	local minusbutton = vgui.Create( "DButton" )
+	minusbutton:SetParent(queuetitle)
+	minusbutton:SetPos(queuetitle:GetWide() / 1.15,queuetitle:GetTall() / 4.5)
+	minusbutton:SetSize(20,20 ) //Set the size of it
+	minusbutton:SetText("")
+    minusbutton:SetTooltip("Remove Yourself from the Queue.")
+	
+	minusbutton:SetImage("icon16/user_delete.png")
+	
+	function minusbutton:Paint(width,height)
+		
+	end
+	
+	minusbutton.DoClick = function() 
+		RunConsoleCommand("tc_remove_from_trashman_queue",LocalPlayer():EntIndex())
 	end
 	
 	
 	
+	local queuelistframe = vgui.Create( "DPanel",queueframe )
+	
+	
+	queuelistframe:SetPos( (ScrW() / 1.3)- (wper / 6) ,(wper / 16) * 3.3) 
+	queuelistframe:SetSize( wper / 3, hper -  (wper / 16)) 
+	queuelistframe:MakePopup()
+		
+	local queuescroll = vgui.Create( "DScrollPanel", queuelistframe ) 
+	queuescroll:SetSize( wper / 3 , hper - 45 ) 
+	queuescroll:SetPos( 0,0)
+	
+	local queuelist = vgui.Create( "DIconLayout", queuescroll ) 
+	queuelist:SetSize( wper / 3 , hper )
+	queuelist:SetPos( 0,0)
+	queuelist:SetSpaceY( 5 ) 
+	queuelist:SetSpaceX( 45 )
+	
+	
+	local i = 1
+	for k,v in pairs(TRASHMAN_QUEUE) do
+		if(IsValid(v)) then
+			local ListItem = queuelist:Add( "DButton" ) //Add DPanel to the DIconLayout
+			ListItem:SetSize( wper / 3 , wper / 16 ) //Set the size of it
+			ListItem:SetText("")
+		
+			function ListItem:Paint(width,height)
+				surface.SetDrawColor( Color( 40,40,40, 200))
+				surface.DrawRect( 0,0,width,height)
+			end
+			
+		
+			local av = vgui.Create( "AvatarImage",ListItem )
+			av:SetSize( wper / 16,wper / 16 )
+			av:SetPos(0,0)
+			av:SetPlayer( v,64 )
+			
+			local plyname = vgui.Create( "DLabel",ListItem )
+			local x,y = ListItem:GetSize()
+			plyname:SetColor(Color(255,255,255,255))
+			plyname:SetFont("Trebuchet18")
+			plyname:SetText(i.."  "..v:Nick())
+			plyname:SizeToContents()
+			plyname:Center()
+			plyname:SetPos((wper / 16) * 1.3 ,plyname.y)
+			
+			plyname.DoRightClick = function() 
+		
+			end
+			
+			plyname.DoClick = function() 
+		
+			end
+			
+			if(LocalPlayer():IsAdmin()) then
+				local plyminusbutton = vgui.Create( "DButton" ) //Add DPanel to the DIconLayout
+				plyminusbutton:SetParent(ListItem)
+				plyminusbutton:SetPos(ListItem:GetWide() / 1.2,ListItem:GetTall() / 6)
+				plyminusbutton:SetSize(20,20 ) //Set the size of it
+				plyminusbutton:SetText("")
+				plyminusbutton:SetTooltip("Remove player from the Queue.")
+				
+				plyminusbutton:SetImage("icon16/user_delete.png")
+				
+				function plyminusbutton:Paint(width,height)
+					
+				end
+				
+				plyminusbutton.DoClick = function() 
+					RunConsoleCommand("tc_remove_from_trashman_queue",v:EntIndex())
+				end
+			end
+			
+			i = i + 1
+		end
+	end
 end
 
+--Context Menu from right clicking players in the scoreboard
 local Menu
 function GM:OpenContextMenu(ply)
 	Menu = DermaMenu()
@@ -464,6 +655,15 @@ function GM:OpenContextMenu(ply)
 		
 		function rocket:DoClick()
 			RunConsoleCommand("tc_rocket_player",ply:EntIndex())
+		end
+		
+		if(ply:IsTrashman()) then
+			local unfreeze = Menu:AddOption("Unfreeze All Props")
+			unfreeze:SetIcon( "icon16/package_delete.png" )
+			
+			function unfreeze:DoClick()
+				RunConsoleCommand("tc_force_drop_all_props",ply:EntIndex())
+			end
 		end
 		
 		local kill = Menu:AddOption("Kill")
@@ -499,34 +699,37 @@ function GM:OpenContextMenu(ply)
 	Mute:SetIcon( "icon16/sound_mute.png" )
 	
 	function Mute:DoClick()
-		ply:SetMuted(!ply:IsMuted())
-		surface.PlaySound("garrysmod/ui_click.wav")
+		if(IsValid(ply)) then
+			ply:SetMuted(!ply:IsMuted())
+			surface.PlaySound("garrysmod/ui_click.wav")
+		end
 	end
 
 	Menu:Open()
 end
 
+--Opening the Scoreboard
 function GM:ScoreboardShow()
 	DrawAScoreboard()
+	if(UseTrashmanQueue) then DrawTheQueue() end
 	scoreboardframe:SetVisible(true)
-	IsDrawingIcon = true
-	spawnframe:SetVisible(false)
+	if(UseTrashmanQueue) then queueframe:SetVisible(true) end
 	RememberCursorPosition()
-	gui.EnableScreenClicker(false)
+	gui.EnableScreenClicker(false)	
 end
 
+--Closing the Scoreboard
 function GM:ScoreboardHide()
 	if(IsValid(Menu)) then
 		Menu:Hide()
 	end
-	scoreboardframe:SetVisible(false)
-	IsDrawingIcon = false
-	spawnframe:SetVisible(false)
+	if(IsValid(scoreboardframe)) then scoreboardframe:SetVisible(false) end
+	if(IsValid(queueframe)) then queueframe:SetVisible(false) end
 	RememberCursorPosition()
 	gui.EnableScreenClicker(false)
 end
 
-
+--Prints Chat Messages
 function PrintTCMessage(data)
 	local i = data:ReadChar()
 	local customdata = data:ReadLong()
@@ -538,47 +741,22 @@ function PrintTCMessage(data)
 		chat.AddText(Color(120,152,27),"[TrashCompactor]: ", Color(40,200,20), customstring.." was AFK for too long!")
 	elseif(i == 2) then
 		chat.AddText(Color(120,152,27),"[TrashCompactor]: ", Color(200,20,20), "AFK Warning: You have "..customdata.." seconds to move!")
+	elseif(i == 3) then
+		chat.AddText(Color(120,152,27),"[TrashCompactor]: ", Color(58,191,184), "You have added yourself to the queue.")
+	elseif(i == 4) then
+		chat.AddText(Color(120,152,27),"[TrashCompactor]: ", Color(58,191,184), "You have removed yourself from the queue.")
+	elseif(i == 5) then
+		chat.AddText(Color(120,152,27),"[TrashCompactor]: ", Color(209,0,39), "ERROR: ", Color(58,191,184), "Player is already in the queue.")
+	elseif(i == 6) then
+		chat.AddText(Color(120,152,27),"[TrashCompactor]: ", Color(58,191,184), "You will become the Trashman next round.")
 	end
 end
 usermessage.Hook ("PrintTCMessage" , PrintTCMessage )
 
+--Is 3rd Person Cam?
 local GestureCam = false
-
 function DoTCGesture(data)
-	local ply = Entity(data:ReadLong())
-	
-	if(IsValid(ply)) then
-		ply:AnimRestartGesture(GESTURE_SLOT_CUSTOM,ACT_GMOD_GESTURE_BOW,true)
-	end
-	
-	if(ply == LocalPlayer()) then
-	
-		GestureCam = data:ReadBool()
-	
-	end
-	--
-	--local timeramount = 3
-	--
-	--if(gesture == ACT_GMOD_GESTURE_BOW || gesture == ACT_GMOD_GESTURE_DISAGREE || gesture == ACT_GMOD_TAUNT_CHEER || gesture == ACT_GMOD_TAUNT_PERSISTENCE || gesture == ACT_GMOD_TAUNT_SALUTE) then
-	--	timeramount = 3
-	--elseif(gesture == ACT_GMOD_GESTURE_BECON) then
-	--	timeramount = 4
-	--elseif(gesture == ACT_GMOD_TAUNT_LAUGH) then
-	--	timeramount = 6
-	--elseif(gesture == ACT_GMOD_TAUNT_DANCE) then
-	--	timeramount = 9
-	--elseif(gesture == ACT_GMOD_TAUNT_ROBOT) then
-	--	timeramount = 12
-	--elseif(gesture == ACT_GMOD_TAUNT_MUSCLE) then
-	--	timeramount = 13
-	--
-	--end
-	--
-	--
-	--timer.Create("GestureTimer"..LocalPlayer():SteamID(),timeramount,1, function()
-	--	LocalPlayer():SetGestureCam(false)
-	--end)
-	
+	GestureCam = data:ReadBool()
 end
 usermessage.Hook ("DoTCGesture" , DoTCGesture )
 
@@ -601,10 +779,22 @@ function GM:CalcView(ply, pos, ang, fov, nearz,farz)
 	return view
 end
 
+--Drawing ourself only if we are in a gesture
 hook.Add( "ShouldDrawLocalPlayer", "MyShouldDrawLocalPlayer", function( ply )
 	return GestureCam
 end )
 
+--Getting The Trashman Queue
+net.Receive( "TrashmanQueue", function( len )
+	UseTrashmanQueue = net.ReadBool()
+	BOUGHT_TRASHMAN = net.ReadEntity()
+	local tbl = net.ReadTable()
+	TRASHMAN_QUEUE = tbl
+end )
+
+net.Receive( "FrozenPropsAmount", function( len )
+	NumberOfFrozenObjects = net.ReadInt(32)
+end )
 
 function GetDeathTime(data)
 	RespawnTime = data:ReadLong()
@@ -614,10 +804,26 @@ function GetDeathTime(data)
 end
 usermessage.Hook ("GetDeathTime" , GetDeathTime )
 
+--Gets our position in the Trashman Queue
+function CheckTrashmanQueue()
+	for k,v in pairs(TRASHMAN_QUEUE) do
+		if(IsValid(v) && v == LocalPlayer()) then
+			PlaceInQueue = k
+			return
+		end
+	end
+	PlaceInQueue = -1
+end
+
+function GM:GetBoughtTrashman()
+	return BOUGHT_TRASHMAN
+end
+
 function GM:ShowHelp()
 	gui.OpenURL( GAMEMODE.Config.HelpButtonLink )
 end
 
+--Unused
 function MapError()
 	MAP_ERROR = true
 end

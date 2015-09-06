@@ -1,5 +1,5 @@
 GM.Name 	= "Trash Compactor"
-GM.Author 	= "VictimofScience"
+GM.Author 	= "VictimofScience & Landmine752"
 GM.Email 	= ""
 GM.Website 	= "http://steamcommunity.com/id/VictimofScience/"
 GM.Help		= "Beware the Trashman"
@@ -18,10 +18,11 @@ end
 TEAM_TRASHMAN = 4
 TEAM_VICTIMS = 5
 
-
+--Adding Player Fucntions
 PlayerOverride = FindMetaTable("Player")
 
 PlayerOverride.CurrentProp = nil
+PlayerOverride.IsSpec = false
 
 function GM:CreateTeams()
 	--TEAM SETUP
