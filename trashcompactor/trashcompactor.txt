@@ -12,9 +12,41 @@
 		{
 			"name"		"tc_debug"
 			"text"		"Debug Mode"
-			"help"		"Debug Mode"
+			"help"		"For Dev Purpose Only (Leave Off)"
 			"type"		"CheckBox"
 			"default"	"0"
+		}
+		2
+		{
+			"name"		"tc_queue"
+			"text"		"Trashman Queue"
+			"help"		"Toggles the Trashman Queue"
+			"type"		"CheckBox"
+			"default"	"0"
+		}
+		3
+		{
+			"name"		"tc_maxfreeze"
+			"text"		"Max Frozen Props"
+			"help"		"The maxiumum number of props you can freeze at any given time"
+			"type"		"Numeric"
+			"default"	"10"
+		}
+		4
+		{
+			"name"		"tc_maxpropdistance"
+			"text"		"Max Prop Distance"
+			"help"		"The maxiumum distance you can hold props with the physgun"
+			"type"		"Numeric"
+			"default"	"800"
+		}
+		5
+		{
+			"name"		"tc_afktimer"
+			"text"		"Trashman AFK Timer"
+			"help"		"Time in seconds before the AFK timer kills the Trashman for being afk"
+			"type"		"Numeric"
+			"default"	"20"
 		}
 	}
 }
