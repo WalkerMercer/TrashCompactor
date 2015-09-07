@@ -52,6 +52,8 @@ DefaultModels[13] = "female04"
 DefaultModels[14] = "female06"
 DefaultModels[15] = "female07"
 
+TRASHMAN_STRIP_TRIGGERS = {}
+
 
 function GM:InitPostEntity()
 	SaveAllPropLocations()
@@ -62,6 +64,23 @@ function GM:InitPostEntity()
 	--Not working yet
 	--ReadTrashmanQueueFromFile()
 	LOAD_QUEUE = true
+	
+	if(GAMEMODE.Config.StripPhysgun) then CreateAllStripTriggers() end
+end
+
+function CreateAllStripTriggers()
+	local TRASHMAN_STRIP_TRIGGERS = ents.FindByName("TrashmanStripTrigger")
+	
+	if(#TRASHMAN_STRIP_TRIGGERS == 0) then
+		print("WARNING: NO WEAPON STRIP TRIGGER WAS FOUND FOR THIS MAP. REFER TO THE WORKSHOP FOR INFORMATION.")
+	end
+	
+	for k,v in pairs(TRASHMAN_STRIP_TRIGGERS) do
+		local trigger = ents.Create("tc_striptrigger")
+		trigger:SetPos(v:GetPos())
+		trigger:Spawn()
+		trigger:SetupBounds(v:GetCollisionBounds())
+	end
 end
 
 --Finds all prop_physics and prop_physics_multiplayer and saves them to a table
@@ -360,6 +379,7 @@ end
 
 --Adds more force to the object you punting
 function GM:GravGunPunt(ply, ent)
+	if(!IsValid(ent) || !IsValid(ent:GetPhysicsObject())) then return false end
 	ent:GetPhysicsObject():SetVelocity(ply:GetForward() * (ent:GetPhysicsObject():GetMass() / 4))
 	return true
 end
@@ -371,7 +391,7 @@ function GM:PhysgunPickup(ply, ent)
 
 	--Useful for Map Making
 	if(GetConVarNumber("tc_debug") == 1) then
-		print("Model: "..ent:GetModel().."Mass: "..ent:GetPhysicsObject():GetMass())
+		print("Model: "..ent:GetModel().."  Mass: "..ent:GetPhysicsObject():GetMass())
 	end
 	
 	--All the props the Trashman has frozen

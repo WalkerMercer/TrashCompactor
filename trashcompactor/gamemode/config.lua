@@ -24,6 +24,9 @@ GM.Config.PropCollision = false
 --Trashmen spawn with the Physgun
 GM.Config.SpawnWithPhysGun = true
 
+--Strip Trashman of Physgun when he jumps down?
+GM.Config.StripPhysgun = true
+
 --Max grab distance for props (Use tc_maxpropdistance ### console command now)
 --GM.Config.MaxPropDistance = 800
 
@@ -37,13 +40,13 @@ GM.Config.AllowAdminNoClip = true
 --GM.Config.TrashmanAfkTimer = 20
 
 --Enable pointshop playermodels
-GM.Config.PointshopModels = true
+GM.Config.PointshopModels = false
 
 --Enable pointshops points
 GM.Config.PointshopPoints = false
 
 --Enable Pointshop points for Pointshop2
-GM.Config.PointshopTwoPoints = true
+GM.Config.PointshopTwoPoints = false
 
 --Amount of points to give for kills. Requires either pointshops to be enabled
 GM.Config.PointshopPointsToGive = 10
