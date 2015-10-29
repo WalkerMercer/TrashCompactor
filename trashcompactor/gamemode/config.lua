@@ -36,6 +36,9 @@ GM.Config.FreeForAllOnRoundEnd = true
 --Allow admins to noclip
 GM.Config.AllowAdminNoClip = true
 
+--Allow Admin respawn with F3
+GM.Config.AllowAdminRespawn = true
+
 --Trashman AFK Timer. Set 0 to disable (Use tc_afktimer ## console command now)
 --GM.Config.TrashmanAfkTimer = 20
 
@@ -50,6 +53,20 @@ GM.Config.PointshopTwoPoints = false
 
 --Amount of points to give for kills. Requires either pointshops to be enabled
 GM.Config.PointshopPointsToGive = 10
+
+--Colors--
+
+--Default color for the Trashman team. For GUI only. (Red Green Blue Alpha format. Leave Alpha at 255) Default is 120,152,27,255
+GM.Config.TrashmanColor = Color(120,152,27,255)
+
+--Default color for the Victims team. For GUI only. Default is 46,92,165,255
+GM.Config.VictimsColor = Color(46,92,165,255)
+
+--Default color for the Trashman weapon and skin (Red Green Blue format. Value between 1 & 0 work best. ex 0.58)
+GM.Config.TrashmanWeaponColor = Vector(0,1,0)
+
+--Default color for the Victims weapon and skin
+GM.Config.VictimsWeaponColor = Vector(0,0,1)
 
 
 --Weapons the victims will spawn with

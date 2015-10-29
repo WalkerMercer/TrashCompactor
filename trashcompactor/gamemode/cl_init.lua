@@ -27,6 +27,19 @@ local NumberOfFrozenObjects = 0
 
 local UseTrashmanQueue = false
 
+local ColorLerp = 0
+local ClorCountingUp = true
+
+function Fade( a, b, frac, alpha )
+    local res, me
+     res = Color( 0, 0, 0, alpha )
+     me = ( 1 - frac )
+    res.r = ( a.r * me ) + ( b.r * frac )
+    res.g = ( a.g * me ) + ( b.g * frac )
+    res.b = ( a.b * me ) + ( b.b * frac )
+    return res
+end
+
 ----TIMER-----------------------------------------------------------------------
 
 local RoundTimer = 0
@@ -84,11 +97,22 @@ local function GetWinMessage (amessage)
 end
 usermessage.Hook ("SendWinMessage" , GetWinMessage )
 
-
 function DrawHud()
 
 	LocalPlayer():ConCommand("physgun_wheelspeed 10") -- not my favorite way of doing this but prevents prop killing 
 
+	if(ClorCountingUp) then
+		ColorLerp = ColorLerp + 0.001
+		if(ColorLerp > 1) then
+			ClorCountingUp = false
+		end
+	else
+		ColorLerp = ColorLerp - 0.001
+		if(ColorLerp < 0) then
+			ClorCountingUp = true
+		end
+	end
+	
 	if(GetConVarNumber( "cl_drawhud" ) == 1) then
 		draw.NoTexture()
 		
@@ -96,9 +120,9 @@ function DrawHud()
 		if(WINMESSAGETYPE != 0) then
 			draw.RoundedBox( 10, ScrW() / 2 - (ScrW() / 6) / 2, ScrH() / 12.5, ScrW() / 6, ScrH() / 14, Color( 0, 0, 0, 200 ) )
 			if(WINMESSAGETYPE == 1) then
-				draw.DrawText("TRASHMAN WINS!" , "CloseCaption_Bold", ScrW() / 2  , ScrH() /  10, Color( 120,152,27,255 ), TEXT_ALIGN_CENTER )
+				draw.DrawText("TRASHMAN WINS!" , "CloseCaption_Bold", ScrW() / 2  , ScrH() /  10, GAMEMODE.Config.TrashmanColor, TEXT_ALIGN_CENTER )
 			elseif(WINMESSAGETYPE == 2) then
-				draw.DrawText("VICTIMS WINS!" , "CloseCaption_Bold", ScrW() / 2  , ScrH() /  10, Color( 46,92,165,255 ), TEXT_ALIGN_CENTER )
+				draw.DrawText("VICTIMS WINS!" , "CloseCaption_Bold", ScrW() / 2  , ScrH() /  10, GAMEMODE.Config.VictimsColor, TEXT_ALIGN_CENTER )
 			end
 		end
 		
@@ -106,18 +130,18 @@ function DrawHud()
 		if(UseTrashmanQueue) then
 			CheckTrashmanQueue()
 			if(PlaceInQueue != -1) then
-				draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.16, ScrW() / 6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
-				draw.DrawText("Your place in the Queue: "..PlaceInQueue , "HudHintTextLarge", ScrW() / 2, ScrH() / 1.145, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+				draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.18, ScrW() / 6, ScrH() / 17, Color( 0, 0, 0, 200 ) )
+				draw.DrawText("Your place in the Queue: "..PlaceInQueue , "HudHintTextLarge", ScrW() / 2, ScrH() / 1.15, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
 			else
-				draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.16, ScrW() / 6, ScrH() / 25, Color( 0, 0, 0, 200 ) )
-				draw.DrawText("  You are not in the Trashman Queue. \n Open the Scoreboard to add yourself." , "HudHintTextLarge", ScrW() / 2, ScrH() / 1.155, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+				draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.18, ScrW() / 6, ScrH() / 17, Color( 0, 0, 0, 200 ) )
+				draw.DrawText("  You are not in the Trashman Queue. \n Open the Scoreboard or type !queue \n to add yourself." , "HudHintTextLarge", ScrW() / 2, ScrH() / 1.175, Fade(Color(255,255,255,255),GAMEMODE.Config.TrashmanColor,ColorLerp,255), TEXT_ALIGN_CENTER )
 			end
 		end
 		
 		--Draws Amount of Frozen Objects
 		if(LocalPlayer():IsTrashman()) then
-			draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.195, ScrW() / 6, ScrH() / 43, Color( 0, 0, 0, 200 ) )
-			draw.DrawText("Frozen Objects: "..NumberOfFrozenObjects.."/"..GetConVarNumber("tc_maxfreeze"), "HudHintTextLarge", ScrW() / 2, ScrH() / 1.19, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
+			draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.22, ScrW() / 6, ScrH() / 43, Color( 0, 0, 0, 200 ) )
+			draw.DrawText("Frozen Objects: "..NumberOfFrozenObjects.."/"..GetConVarNumber("tc_maxfreeze"), "HudHintTextLarge", ScrW() / 2, ScrH() / 1.215, Color( 255,255,255,255 ), TEXT_ALIGN_CENTER )
 		end
 		
 		--Draws Info for Spectators
@@ -357,10 +381,11 @@ function DrawAScoreboard() --Not Commenting this cause its a clusterfuck of a me
 		ListItem:SetText("")
 
 		function ListItem:Paint(width,height)
+			local color = GAMEMODE.Config.TrashmanColor
 			if(v:Alive()) then
-				surface.SetDrawColor( Color( 120,152,27, 200 ))
+				surface.SetDrawColor( Color( color.r,color.g,color.b, 200 ))
 			else
-				surface.SetDrawColor( Color( 120,152,27, 80))
+				surface.SetDrawColor( Color( color.r,color.g,color.b, 80))
 			end
 			
 			
@@ -442,10 +467,11 @@ function DrawAScoreboard() --Not Commenting this cause its a clusterfuck of a me
 	   
 			function ListItem:Paint(width,height)
 				if(IsValid(v)) then
+					local color = GAMEMODE.Config.VictimsColor
 					if(v:Alive()) then
-						surface.SetDrawColor( Color( 46,92,165, 200 ))
+						surface.SetDrawColor( Color( color.r,color.g,color.b, 200 ))
 					else
-						surface.SetDrawColor( Color( 46,92,165, 80 ))
+						surface.SetDrawColor( Color( color.r,color.g,color.b, 80))
 					end
 					surface.DrawRect( 0,0,width,height)
 				end
@@ -500,7 +526,7 @@ function DrawTheQueue()
 	
 	queuetitle:SetPos( queueframe:GetPos() ) 
 	queuetitle:SetSize( wper / 3 ,   (wper / 16)) 
-	queuetitle:SetBackgroundColor(Color(120,152,27, 255))
+	queuetitle:SetBackgroundColor(GAMEMODE.Config.TrashmanColor)
 	queuetitle:MakePopup()
 
 	

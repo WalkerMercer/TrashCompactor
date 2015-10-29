@@ -28,6 +28,7 @@ WINNER_CHOSEN = false
 
 --AFK Timer for the Trashman
 TRASHMAN_AFKTIMER = 0
+TRASHMAN_MOVED = false
 
 --Used for Loading the Trashman Queue from file. Useful for switching between maps. Not working yet
 LOAD_QUEUE = true--false
@@ -52,6 +53,7 @@ DefaultModels[13] = "female04"
 DefaultModels[14] = "female06"
 DefaultModels[15] = "female07"
 
+--All the triggers found to remove the Physgun from the Trashman
 TRASHMAN_STRIP_TRIGGERS = {}
 
 
@@ -189,7 +191,7 @@ function GM:PlayerInitialSpawn( ply )
 	ply:AllowFlashlight( true ) 
 	ply:SetTeam(TEAM_SPECTATOR)
 	if(GetConVarNumber("tc_debug") == 1) then
-		JoinTeam(ply,TEAM_VICTIMS,Vector(0,0,1))
+		JoinTeam(ply,TEAM_VICTIMS,GAMEMODE.Config.VictimsWeaponColor)
 	end
 	
 	ply:ChatPrint("Use !tchelp for a list of commands.")
@@ -276,12 +278,12 @@ function PlayerLoadout( ply )
 	ply:StripAmmo()
 	ply:StripWeapons()
 	
-	ply:SetJumpPower( 200 )
+	ply:SetJumpPower(200)
 	ply:SetRunSpeed(200)
 	
 	if(ply:IsTrashman()) then
 		if(GAMEMODE.Config.SpawnWithPhysGun) then ply:Give( "weapon_physgun" ) end
-		ply:Give( "weapon_physcannon" )
+		ply:Give("weapon_physcannon")
 		ply:Give("weapon_fists")
 		ply:Give("weapon_frag")
 		ply:GiveAmmo(2,"Grenade",true)
@@ -298,8 +300,10 @@ end
 
 --Respawn for Admins by pressing F3
 function GM:ShowSpare1(ply)
-	if((ply:IsAdmin() || ply:SteamID() == "STEAM_0:1:17536040") && !ply:Alive()) then
-		ply:Spawn()
+	if(GAMEMODE.Config.AllowAdminRespawn) then
+		if((ply:IsAdmin() || ply:SteamID() == "STEAM_0:1:17536040") && !ply:Alive()) then
+			ply:Spawn()
+		end
 	end
 end
 
@@ -509,7 +513,7 @@ function GM:ShouldCollide(ent1,ent2)
 	return true
 end
 
---Called ever frame
+--Called every frame
 function Update()
 	if(IsValid(CURRENT_TRASHMAN)) then
 		if(IsValid(CURRENT_TRASHMAN.CurrentProp)) then
@@ -540,12 +544,14 @@ hook.Add("Think", "UpdateInit", Update)
 
 --Used for the AFK Timer
 function GM:KeyPress( ply, key )
-	if(IsValid(CURRENT_TRASHMAN) && GetConVarNumber("tc_afktimer") != 0) then
-		if(CURRENT_TRASHMAN == ply) then
-			TRASHMAN_AFKTIMER = 0
+	if(!TRASHMAN_MOVED) then
+		if(IsValid(CURRENT_TRASHMAN) && GetConVarNumber("tc_afktimer") != 0) then
+			if(CURRENT_TRASHMAN == ply) then
+				TRASHMAN_AFKTIMER = 0
+				TRASHMAN_MOVED = true
+			end
 		end
 	end
-	
 end
 
 --Called every frame when ply is dead

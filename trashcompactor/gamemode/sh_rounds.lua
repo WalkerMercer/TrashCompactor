@@ -96,6 +96,7 @@ function RoundStart()
 		
 		WINNER_CHOSEN = false
 		TRASHMAN_AFKTIMER = 0
+		TRASHMAN_MOVED = false
 	else
 		CURRENTROUNDSTATE = ROUND_WAITING
 	end
@@ -150,14 +151,15 @@ function RoundThink()
 					SendTCMessage( 2,CURRENT_TRASHMAN,10,"")
 				end
 			
-				TRASHMAN_AFKTIMER = TRASHMAN_AFKTIMER + 1
-
+				if(!TRASHMAN_MOVED) then
+					TRASHMAN_AFKTIMER = TRASHMAN_AFKTIMER + 1
+				end
 			end
 			
 		else
 			if(GetConVarNumber("tc_debug") != 1) then
 				EndRound()
-			end
+			end			
 		end
         SendTimerInt = CurTime() + 1
     end
@@ -214,7 +216,7 @@ end
 
 function ForceAllJoinVictims()
 	for k, v in pairs(player.GetAll()) do
-		JoinTeam(v,TEAM_VICTIMS,Vector(0,0,1))
+		JoinTeam(v,TEAM_VICTIMS,GAMEMODE.Config.VictimsWeaponColor)
 		v.FrozenPhysicsObjects = nil
 	end
 end
@@ -235,17 +237,17 @@ end
 
 function FindTrashman()
 	if(NEXT_TRASHMAN != nil) then
-		JoinTeam(NEXT_TRASHMAN,TEAM_TRASHMAN,Vector(0,1,0))
+		JoinTeam(NEXT_TRASHMAN,TEAM_TRASHMAN,GAMEMODE.Config.TrashmanWeaponColor)
 		CURRENT_TRASHMAN = NEXT_TRASHMAN
 		NEXT_TRASHMAN = nil
 	elseif(BOUGHT_TRASHMAN != nil) then
-		JoinTeam(BOUGHT_TRASHMAN,TEAM_TRASHMAN,Vector(0,1,0))
+		JoinTeam(BOUGHT_TRASHMAN,TEAM_TRASHMAN,GAMEMODE.Config.TrashmanWeaponColor)
 		CURRENT_TRASHMAN = BOUGHT_TRASHMAN
 		BOUGHT_TRASHMAN = nil	
 		print("Used Bought Trashman!")
 	elseif(UseTrashmanQueue && #TRASHMAN_QUEUE_LIST != 0) then
 		if(IsValid(TRASHMAN_QUEUE_LIST[1])) then
-			JoinTeam(TRASHMAN_QUEUE_LIST[1],TEAM_TRASHMAN,Vector(0,1,0))
+			JoinTeam(TRASHMAN_QUEUE_LIST[1],TEAM_TRASHMAN,GAMEMODE.Config.TrashmanWeaponColor)
 			CURRENT_TRASHMAN = TRASHMAN_QUEUE_LIST[1]
 		end
 		
@@ -286,19 +288,19 @@ function FindRandomTrashman()
 	local num = math.random(#noprevtrashman)
 	
 	if(IsValid(noprevtrashman[num])) then
-		JoinTeam(noprevtrashman[num],TEAM_TRASHMAN,Vector(0,1,0))
+		JoinTeam(noprevtrashman[num],TEAM_TRASHMAN,GAMEMODE.Config.TrashmanWeaponColor)
 		CURRENT_TRASHMAN = noprevtrashman[num]
 	
 	else
 		if(#list == 1) then
-			JoinTeam(list[1],TEAM_TRASHMAN,Vector(0,1,0))
+			JoinTeam(list[1],TEAM_TRASHMAN,GAMEMODE.Config.TrashmanWeaponColor)
 			CURRENT_TRASHMAN = list[1]
 		else
 			print("Error Finding Trashman! Num: "..num.." Amount: "..#noprevtrashman)
 			
 			if(#noprevtrashman != 0) then
 				local ran = math.random(#list)
-				JoinTeam(list[ran],TEAM_TRASHMAN,Vector(0,1,0))
+				JoinTeam(list[ran],TEAM_TRASHMAN,GAMEMODE.Config.TrashmanWeaponColor)
 				CURRENT_TRASHMAN = list[ran]
 			end
 		end
