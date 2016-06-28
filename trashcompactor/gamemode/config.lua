@@ -1,3 +1,5 @@
+AddCSLuaFile()
+
 --CONFIG SETTINGS
 
 --Use thr Trashman Queue? (Use tc_queue 1  console command now)
