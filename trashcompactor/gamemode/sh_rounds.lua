@@ -92,6 +92,11 @@ function RoundStart()
 		umsg.Char(ROUND_RUNNING)
 		umsg.End()
 		
+		--ClearProps()
+		if(GetConVarNumber( "tc_debug" ) == 1) then
+			SpawnAllProps()
+		end
+		
 		FindTrashman()
 		
 		WINNER_CHOSEN = false
@@ -175,8 +180,9 @@ function RoundEnd()
 		CURRENTROUNDSTATE = ROUND_STARTING
 		StartRoundDelayInt = CurTime() + 4
 		
-		ClearProps()
+		--ClearProps()
 		SpawnAllProps()
+		
 		
 		ForceAllJoinVictims()
 		
@@ -190,7 +196,8 @@ function RoundWait()
 	umsg.End()
 	
 	if(MinumumPlayersNeeded() || GetConVarNumber( "tc_debug" ) == 1) then
-		ClearProps()
+		--ClearProps()
+		
 		SpawnAllProps()
 		ForceAllJoinVictims()
 		
@@ -337,22 +344,28 @@ function ClearProps()
 end
 
 function SpawnAllProps()
+	--PrintTable(PROP_LIST)
+	ClearProps()
+	
 	for k,v in pairs (PROP_LIST) do
 		if(#PROP_LIST == 0) then print("Error: No Props are in the list") return end
 		
 	
 		local ent = ents.Create( "prop_physics_multiplayer")
-
-		if ( !IsValid(ent) || !IsValid(PROP_LIST[k])) then print("Error Making Prop") end
+    
+		if ( !IsValid(ent) ) then print("Error Making Prop") end
 		
 		local modelpath = PROP_LIST[k][2]
 		
 		if(modelpath != nil && modelpath != "") then 
 		
 			ent:SetModel(modelpath) 
-			if (IsValid(PROP_LIST[k][1])) then ent:SetPos(PROP_LIST[k][1]) else print("Error: No Position Set for prop "..k) end
-			if (IsValid(PROP_LIST[k][3])) then ent:SetAngles(PROP_LIST[k][3]) else print("Error: No Angles Set for prop "..k) end
-			ent:SetCustomCollisionCheck( true )
+			ent:SetPos(PROP_LIST[k][1])
+			ent:SetAngles(PROP_LIST[k][3])
+			
+			--if (IsValid(PROP_LIST[k][1])) then ent:SetPos(PROP_LIST[k][1]) else print("Error: No Position Set for prop "..k) end
+			--if (IsValid(PROP_LIST[k][3])) then ent:SetAngles(PROP_LIST[k][3]) else print("Error: No Angles Set for prop "..k)  end
+			--ent:SetCustomCollisionCheck( true )
 			ent:Spawn()
 		
 		else

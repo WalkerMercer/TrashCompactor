@@ -1,10 +1,8 @@
 GM.Config = {}
 
-AddCSLuaFile( "config.lua" )
-AddCSLuaFile( "shared.lua" )
+
 
 include( 'config.lua')
-
 include( 'shared.lua')
 
 killicon.AddFont("kill", "TargetID", "has killed", Color(255,255,255,255))

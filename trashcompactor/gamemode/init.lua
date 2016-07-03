@@ -57,17 +57,26 @@ DefaultModels[15] = "female07"
 TRASHMAN_STRIP_TRIGGERS = {}
 
 
-function GM:InitPostEntity()
-	SaveAllPropLocations()
-	ClearProps()
-	SpawnAllProps()
+function StartGame()
+	--SaveAllPropLocations()
+	--ClearProps()
+	--SpawnAllProps()
 	TRASHMAN_AFKTIMER = 0
+	
+	print("WAS CALLED")
 	
 	--Not working yet
 	--ReadTrashmanQueueFromFile()
 	LOAD_QUEUE = true
 	
 	if(GAMEMODE.Config.StripPhysgun) then CreateAllStripTriggers() end
+end
+hook.Add("InitPostEntity", "PostEnt", StartGame)
+
+function GM:PostGamemodeLoaded()
+	--SaveAllPropLocations()
+	--ClearProps()
+	--SpawnAllProps()
 end
 
 function CreateAllStripTriggers()
@@ -101,6 +110,11 @@ function SaveAllPropLocations()
 		
 		table.insert(PROP_LIST, localprop)
 	end
+	
+	if(#PROP_LIST != 0) then
+		ClearProps()
+	end
+	
 	--WritePropTableToFile()
 end
 
@@ -187,6 +201,11 @@ end
 
 --When a player joins the server
 function GM:PlayerInitialSpawn( ply ) 
+	if(#PROP_LIST == 0) then
+		SaveAllPropLocations()
+		SpawnAllProps()
+	end
+
 	ply:SetCustomCollisionCheck( true ) 
 	ply:AllowFlashlight( true ) 
 	ply:SetTeam(TEAM_SPECTATOR)
@@ -353,7 +372,7 @@ function GM:PlayerCanHearPlayersVoice(listener,ply)
 	return true
 end
 
---Dont Allow Players to pickup Props
+--Dont Allow Players to pickup other players
 function GM:AllowPlayerPickup(ply,ent)
 	return false
 end
@@ -499,19 +518,19 @@ function GM:ShowHelp(ply)
 end
 
 --Players will collide with eachother
-function GM:ShouldCollide(ent1,ent2)
-		if(ent1:IsPlayer()) then
-			if(ent2:IsPlayer()) then
-				return true
-			end
-		elseif(ent2:IsPlayer()) then
-			if(ent1:IsPlayer()) then
-				return true
-			end
-		end
-				
-	return true
-end
+--function GM:ShouldCollide(ent1,ent2)
+--		if(ent1:IsPlayer()) then
+--			if(ent2:IsPlayer()) then
+--				return true
+--			end
+--		elseif(ent2:IsPlayer()) then
+--			if(ent1:IsPlayer()) then
+--				return true
+--			end
+--		end
+--				
+--	return true
+--end
 
 --Called every frame
 function Update()
