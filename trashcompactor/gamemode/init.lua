@@ -63,7 +63,7 @@ function StartGame()
 	--SpawnAllProps()
 	TRASHMAN_AFKTIMER = 0
 	
-	print("WAS CALLED")
+	
 	
 	--Not working yet
 	--ReadTrashmanQueueFromFile()
@@ -320,7 +320,7 @@ end
 --Respawn for Admins by pressing F3
 function GM:ShowSpare1(ply)
 	if(GAMEMODE.Config.AllowAdminRespawn) then
-		if((ply:IsAdmin() || ply:SteamID() == "STEAM_0:1:17536040") && !ply:Alive()) then
+		if((ply:IsAdmin()) && !ply:Alive()) then
 			ply:Spawn()
 		end
 	end
@@ -393,7 +393,7 @@ end
 --Admins can Noclip only if the Config allows it (F)
 function GM:PlayerNoClip( ply )
 	if(!GAMEMODE.Config.AllowAdminNoClip) then return false end
-	if(ply:IsAdmin() || ply:SteamID() == "STEAM_0:1:17536040") then
+	if(ply:IsAdmin()) then
 		return true
 	else
 		return false
@@ -808,21 +808,21 @@ concommand.Add( "tc_kill_player", function(sender,str,args)
 		return false
 	end
 	
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		killed:Kill()
 	end
 end)
 
 concommand.Add( "tc_kick_player", function(sender,str,args)
 	local kicked = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		kicked:Kick( "Kicked from server by:"..sender:Nick() )
 	end
 end)
 
 concommand.Add( "tc_rocket_player", function(sender,str,args)
 	local rocket = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		rocket:SetVelocity(Vector(0,0,3000))
 		timer.Create("TCRocket"..rocket:SteamID(),2,1, function()
 			local explode = ents.Create( "env_explosion" ) -- creates the explosion
@@ -838,7 +838,7 @@ end)
 
 concommand.Add( "tc_launch_player", function(sender,str,args)
 	local rocket = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		rocket:SetVelocity(sender:GetForward() * 3000 + Vector(0,0,300))
 	end
 	sender:ChatPrint("Sent "..rocket:Nick().." Flying!")
@@ -846,7 +846,7 @@ end)
 
 concommand.Add( "tc_lock_player", function(sender,str,args)
 	local lock = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		lock:Freeze(true)
 		--lock:AddFlags(FL_ATCONTROLS)
 	end
@@ -856,7 +856,7 @@ end)
 
 concommand.Add( "tc_unlock_player", function(sender,str,args)
 	local unlock = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		unlock:Freeze(false)
 		--unlock:RemoveFlags(FL_ATCONTROLS)
 	end
@@ -866,7 +866,7 @@ end)
 
 concommand.Add( "tc_force_drop_all_props", function(sender,str,args)
 	local trashman = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		trashman:PhysgunUnfreeze()
 		trashman:PhysgunUnfreeze()
 		trashman:PhysgunUnfreeze()
@@ -875,7 +875,7 @@ end)
 
 concommand.Add( "tc_force_trashman", function(sender,str,args)
 	local newtrashman = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin()) then
 		
 		NEXT_TRASHMAN = newtrashman
 		
@@ -886,7 +886,7 @@ end)
 
 concommand.Add( "tc_add_to_trashman_queue", function(sender,str,args)
 	local plytoadd = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender == plytoadd || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin() || sender == plytoadd) then
 		
 		AddToQueue(sender,plytoadd)
 	end
@@ -894,7 +894,7 @@ end)
 
 concommand.Add( "tc_remove_from_trashman_queue", function(sender,str,args)
 	local plytoremove = Entity(tonumber(args[1]) or -1)
-	if(sender:IsAdmin() || sender == plytoremove || sender:SteamID() == "STEAM_0:1:17536040") then
+	if(sender:IsAdmin() || sender == plytoremove) then
 		RemoveFromQueue(sender,plytoremove)
 	end
 end)

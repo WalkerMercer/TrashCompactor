@@ -29,6 +29,8 @@ GM.Config.SpawnWithPhysGun = true
 --Strip Trashman of Physgun when he jumps down?
 GM.Config.StripPhysgun = true
 
+
+
 --Max grab distance for props (Use tc_maxpropdistance ### console command now)
 --GM.Config.MaxPropDistance = 800
 

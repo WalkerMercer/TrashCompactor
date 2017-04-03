@@ -84,3 +84,24 @@ function PlayerOverride:IsVictim()
 		return false
 	end
 end
+
+
+local CMoveData = FindMetaTable( "CMoveData" )
+
+function CMoveData:RemoveKeys( keys )
+	-- Using bitwise operations to clear the key bits.
+	local newbuttons = bit.band( self:GetButtons(), bit.bnot( keys ) )
+	self:SetButtons( newbuttons )
+end
+
+hook.Add( "SetupMove", "Disable Jumping", function( ply, mvd, cmd )
+	if(GetConVarNumber("tc_customjump") == 1) then
+		if mvd:KeyDown( IN_JUMP ) then
+			mvd:RemoveKeys( IN_JUMP )
+			local vel = mvd:GetVelocity()
+			if(vel.z < 2 && vel.z > -2) then
+				mvd:SetVelocity(Vector(vel.x,vel.y,GetConVarNumber("tc_customjumppower")))
+			end
+		end
+	end
+end )

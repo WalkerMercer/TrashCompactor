@@ -136,6 +136,7 @@ function DrawHud()
 			end
 		end
 		
+		
 		--Draws Amount of Frozen Objects
 		if(LocalPlayer():IsTrashman()) then
 			draw.RoundedBox( 5, ScrW() / 2 - (ScrW() /6) / 2, ScrH() / 1.22, ScrW() / 6, ScrH() / 43, Color( 0, 0, 0, 200 ) )
@@ -656,7 +657,7 @@ local Menu
 function GM:OpenContextMenu(ply)
 	Menu = DermaMenu()
 	
-	if(LocalPlayer():IsAdmin() || LocalPlayer():SteamID() == "STEAM_0:1:17536040") then
+	if(LocalPlayer():IsAdmin()) then
 
 		local settrashman = Menu:AddOption("Force Trashman")
 		settrashman:SetIcon( "icon16/user_go.png" )
